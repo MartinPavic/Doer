@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useDoer, useThisDevice, useUiState } from "@doer/core";
 import { CalendarView } from "./CalendarView";
+import { Logo } from "./Logo";
 import { ReminderAlerts } from "./ReminderAlerts";
 import { SettingsDialog } from "./SettingsDialog";
 import { AuthForm } from "./AuthForm";
@@ -18,7 +19,7 @@ function Home() {
   return (
     <div className={`mx-auto space-y-5 px-4 py-8 ${page === "calendar" ? "max-w-5xl" : "max-w-xl"}`}>
       <header className="flex items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent font-bold text-accent-fg">✓</div>
+        <Logo size={36} className="shrink-0" />
         <div className="flex-1"><ProfileSwitcher /></div>
         <button
           onClick={() => setSettingsOpen(true)}

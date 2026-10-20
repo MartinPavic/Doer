@@ -8,7 +8,7 @@ import {
 } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { useDueReminders, useTasks } from "@doer/core";
-import { QuickPanel, ReminderAlerts, useActiveProfile } from "@doer/ui";
+import { BellMark, Logo, QuickPanel, ReminderAlerts, useActiveProfile } from "@doer/ui";
 
 const SIZE = 56;
 const PANEL = { w: 360, h: 520 };
@@ -244,7 +244,7 @@ function AlertPopout({ onFit, onOpenPanel, onClose }: { onFit(h: number): void; 
     <div className="p-2">
       <div ref={card} className="space-y-2 rounded-3xl border border-line bg-surface p-3 shadow-2xl">
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted">Reminder</span>
+          <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><BellMark size={20} shape="square" />Reminder</span>
           <div className="flex items-center gap-1">
             <button onClick={onOpenPanel} className="rounded-lg px-2 py-0.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
               Open panel
@@ -267,15 +267,18 @@ function BubbleFace() {
   const alerting = due.length > 0;
   const count = alerting ? due.length : tasks.length;
   return (
-    // The window is exactly 56px and clips anything outside it, so the 48px circle leaves a 4px
-    // margin for its ring, shadow and badge.
-    <span className="relative size-12">
-      <span
-        className={`flex size-full items-center justify-center rounded-full text-xl font-bold text-white shadow-md ring-2 ring-white/80 ${alerting ? "animate-pulse" : ""}`}
-        style={{ background: profile?.color ?? "var(--accent)" }}
-      >
-        {alerting ? "🔔" : "✓"}
-      </span>
+    // The window is exactly 56px and clips anything outside it, so the 48px mark leaves a 4px margin
+    // for its shadow, the profile dot and the badge.
+    <span className={`relative size-12 rounded-full shadow-lg shadow-black/30 ${alerting ? "animate-pulse" : ""}`}>
+      {alerting ? <BellMark size={48} shape="circle" /> : <Logo size={48} shape="circle" />}
+      {/* Which profile new tasks go to: the app mark stays brand-coloured, the profile shows as a dot. */}
+      {profile && (
+        <span
+          title={profile.name}
+          className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full ring-2 ring-white"
+          style={{ background: profile.color }}
+        />
+      )}
       {count > 0 && (
         <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold text-white ring-2 ring-white">
           {count > 99 ? "99+" : count}

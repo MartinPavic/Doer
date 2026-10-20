@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useDoer } from "@doer/core";
+import { Logo } from "./Logo";
 
 const input =
   "w-full rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm text-fg outline-none transition " +
@@ -41,9 +42,7 @@ export function AuthForm() {
         className="relative w-full max-w-sm space-y-4 rounded-3xl border border-line bg-surface/80 p-8 shadow-2xl shadow-black/5 backdrop-blur"
       >
         <div className="mb-5 space-y-4">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-accent text-lg font-bold text-accent-fg">
-            ✓
-          </div>
+          <Logo size={44} />
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{signup ? "Create your account" : "Welcome back"}</h1>
             <p className="text-sm text-muted">{signup ? "Start tracking your day with Doer." : "Sign in to continue to Doer."}</p>

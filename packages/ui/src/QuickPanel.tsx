@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useDoer, useTaskMutations, useTasks } from "@doer/core";
+import { Logo } from "./Logo";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import { useActiveProfile } from "./useActiveProfile";
 import { ReminderAlerts } from "./ReminderAlerts";
@@ -13,6 +14,7 @@ export function QuickPanel({ onClose }: { onClose?: () => void }) {
 
   const header = (
     <header className="flex items-center gap-2">
+      <Logo size={30} />
       <div className="flex-1">{session && <ProfileSwitcher />}</div>
       {onClose && (
         <button onClick={onClose} aria-label="Close" className="rounded-lg px-2 py-1 text-muted hover:bg-surface-2 hover:text-fg">
