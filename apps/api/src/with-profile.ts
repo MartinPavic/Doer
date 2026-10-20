@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNull, lt } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, or } from "drizzle-orm";
 import type { CreateTaskInput, ListTasksQuery, UpdateTaskInput } from "@doer/core/schemas";
 import type { Db } from "./db/client";
 import { profile, task } from "./db/schema";
@@ -27,10 +27,10 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
         const dayStart = toDate(q.dayStart);
         const dayEnd = toDate(q.dayEnd);
         switch (q.view) {
-          case "today": // overdue + due today
+          case "today": // overdue + due today + undated (quick-added tasks have no due date)
             return db.select().from(task)
-              .where(and(live, eq(task.status, "todo"), dayEnd ? lt(task.dueAt, dayEnd) : undefined))
-              .orderBy(asc(task.dueAt), desc(task.priority));
+              .where(and(live, eq(task.status, "todo"), dayEnd ? or(isNull(task.dueAt), lt(task.dueAt, dayEnd)) : undefined))
+              .orderBy(asc(task.dueAt), desc(task.priority), desc(task.createdAt));
           case "upcoming":
             return db.select().from(task)
               .where(and(live, eq(task.status, "todo"), dayEnd ? gte(task.dueAt, dayEnd) : undefined))
@@ -54,8 +54,9 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
           startAt: toDate(input.startAt),
           dueAt: toDate(input.dueAt),
           profileId: p.id,
-        }).returning();
-        return t;
+        }).onConflictDoNothing({ target: task.id }).returning();
+        // Replayed create: return the existing row, but only if it's ours (get() is profile-scoped).
+        return t ?? (input.id ? this.get(input.id) : undefined);
       },
       async update(id: string, input: UpdateTaskInput) {
         const { status, startAt, dueAt, ...rest } = input;

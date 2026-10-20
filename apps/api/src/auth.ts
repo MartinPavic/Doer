@@ -18,14 +18,22 @@ export type AuthEnv = {
   GOOGLE_CLIENT_SECRET?: string;
 };
 
+/** Browser/webview origins allowed to call the API (CORS + Better Auth trusted origins). */
+export const allowedOrigins = (env: AuthEnv) => [
+  env.WEB_ORIGIN,
+  "tauri://localhost", // desktop webview (production build)
+  "http://tauri.localhost",
+  // `tauri dev` serves the webview from Vite; only when the API itself is local.
+  ...(env.BETTER_AUTH_URL.startsWith("http://localhost") ? ["http://localhost:1420"] : []),
+];
+
 // Built per request: Workers have no module-level env.
 export const createAuth = (env: AuthEnv) => {
   const db = getDb(env.DATABASE_URL);
   return betterAuth({
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
-    // tauri://localhost is the desktop webview origin (bearer token flow).
-    trustedOrigins: [env.WEB_ORIGIN, "tauri://localhost", "http://tauri.localhost"],
+    trustedOrigins: allowedOrigins(env),
     database: drizzleAdapter(db, { provider: "pg", schema }),
     emailAndPassword: { enabled: true },
     socialProviders:

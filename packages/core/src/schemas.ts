@@ -34,9 +34,11 @@ const taskFields = {
   parentId: z.uuid().nullable(),
 };
 
-export const createTaskInput = z.object({ title: taskFields.title }).extend(
-  z.object(taskFields).partial().omit({ title: true }).shape,
-);
+export const createTaskInput = z.object({ title: taskFields.title }).extend({
+  ...z.object(taskFields).partial().omit({ title: true }).shape,
+  // Client-generated so offline creates are idempotent when the outbox replays them.
+  id: z.uuid().optional(),
+});
 export type CreateTaskInput = z.infer<typeof createTaskInput>;
 
 export const updateTaskInput = z

@@ -66,9 +66,18 @@ importers:
       '@tauri-apps/api':
         specifier: ^2
         version: 2.12.4
+      '@tauri-apps/plugin-autostart':
+        specifier: ^2.7.0
+        version: 2.7.0
+      '@tauri-apps/plugin-notification':
+        specifier: ^2.7.0
+        version: 2.7.0
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.7.2
+      '@tauri-apps/plugin-sql':
+        specifier: ^2.6.0
+        version: 2.6.0
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -76,6 +85,9 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
     devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.3.3
+        version: 4.3.3(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
       '@tauri-apps/cli':
         specifier: ^2
         version: 2.12.3
@@ -88,6 +100,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.1.2(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+      tailwindcss:
+        specifier: ^4.3.3
+        version: 4.3.3
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -1361,8 +1376,17 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
+  '@tauri-apps/plugin-autostart@2.7.0':
+    resolution: {integrity: sha512-4uRq+rqKSAh6MWAxgk6FnUPigc8VMG8eDVYTLk3A7OfKs9sLVwfeM8kbUvzjpabRQvyl4zd9tfzXBTrrtuprsA==}
+
+  '@tauri-apps/plugin-notification@2.7.0':
+    resolution: {integrity: sha512-kgdHCPSY/3GIi4gSWuLfd3y555U0kwzP0PmnUjT+sGhgO7RdAM6goFjDqayRaKC8yA5oEYi7w2NnA3oQxIjldw==}
+
   '@tauri-apps/plugin-opener@2.7.2':
     resolution: {integrity: sha512-LyybP1VSzTMQiaFYcsbAse47KpivlyXdLZMQzGLEnkgQacGESnpjAfFoQ6h5sqWgAdZDH9szYjPzHMpv0Sz+TQ==}
+
+  '@tauri-apps/plugin-sql@2.6.0':
+    resolution: {integrity: sha512-UfP4p3Zwh6N7ODRMgnMgXSN6rfUxFo7YXHnRjX8L3Vx7i+IV0bh+r8puwv2OnGq04SLDZFY+LvotxN+pJdZ1Zg==}
 
   '@turbo/darwin-64@2.11.9':
     resolution: {integrity: sha512-OkW+EESJjo248CThWe9DfuUqzGcRwHe1DXKWRw9DSZ0lMkocKbbwNMjWVCiO+WNBcARDM0ibu0c9SbuIe4mw6w==}
@@ -2757,7 +2781,19 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.12.3
       '@tauri-apps/cli-win32-x64-msvc': 2.12.3
 
+  '@tauri-apps/plugin-autostart@2.7.0':
+    dependencies:
+      '@tauri-apps/api': 2.12.4
+
+  '@tauri-apps/plugin-notification@2.7.0':
+    dependencies:
+      '@tauri-apps/api': 2.12.4
+
   '@tauri-apps/plugin-opener@2.7.2':
+    dependencies:
+      '@tauri-apps/api': 2.12.4
+
+  '@tauri-apps/plugin-sql@2.6.0':
     dependencies:
       '@tauri-apps/api': 2.12.4
 

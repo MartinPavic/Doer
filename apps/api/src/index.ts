@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { zValidator } from "@hono/zod-validator";
 import { and, asc, count, eq } from "drizzle-orm";
 import { createProfileInput, createTaskInput, listTasksQuery, updateProfileInput, updateTaskInput } from "@doer/core/schemas";
-import { createAuth, type AuthEnv } from "./auth";
+import { allowedOrigins, createAuth, type AuthEnv } from "./auth";
 import { getDb, type Db } from "./db/client";
 import { profile } from "./db/schema";
 import { withProfile } from "./with-profile";
@@ -15,7 +15,7 @@ const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
 app.use("*", (c, next) =>
   cors({
-    origin: [c.env.WEB_ORIGIN, "tauri://localhost", "http://tauri.localhost"],
+    origin: allowedOrigins(c.env),
     credentials: true,
     exposeHeaders: ["set-auth-token"],
   })(c, next),
@@ -74,7 +74,7 @@ api.post("/profiles/:profileId/tasks", zValidator("json", createTaskInput), asyn
   const s = await scoped(c);
   if (!s) return notFound(c);
   const t = await s.tasks.create(c.req.valid("json"));
-  return t ? c.json(t, 201) : c.json({ error: "parent task not found" }, 400);
+  return t ? c.json(t, 201) : c.json({ error: "invalid parent or id" }, 400);
 });
 
 api.patch("/profiles/:profileId/tasks/:id", zValidator("json", updateTaskInput), async (c) => {

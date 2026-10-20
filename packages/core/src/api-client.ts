@@ -5,6 +5,8 @@ export interface ApiClientOptions {
   baseUrl: string;
   /** Desktop passes the Keychain bearer token; web relies on the session cookie. */
   getToken?: () => Promise<string | null>;
+  /** Persists (or clears, with null) the token the server hands out on sign-in/out. */
+  setToken?: (token: string | null) => Promise<void>;
 }
 
 export class ApiError extends Error {
@@ -56,3 +58,6 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
   };
 }
 export type ApiClient = ReturnType<typeof createApiClient>;
+
+/** True for failures worth retrying later: no network, or the server is down. */
+export const isRetryable = (e: unknown) => !(e instanceof ApiError) || e.status >= 500;
