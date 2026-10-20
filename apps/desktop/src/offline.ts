@@ -173,6 +173,7 @@ export function withOfflineSupport(api: ApiClient): ApiClient {
   }
 
   return {
+    ...api, // reminders/devices/push pass straight through (live data, nothing to cache or queue)
     profiles: {
       ...api.profiles,
       async list() {

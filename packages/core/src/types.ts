@@ -1,3 +1,4 @@
+import type { QuietHours } from "./reminders";
 import type { ProfileKind, TaskStatus } from "./schemas";
 
 // JSON shapes returned by the API (timestamps are ISO strings).
@@ -7,8 +8,9 @@ export interface Profile {
   name: string;
   kind: ProfileKind;
   color: string;
-  quietHours: unknown;
+  quietHours: QuietHours | null;
   defaultReminderOffset: number;
+  allDayReminderTime: string;
   createdAt: string;
 }
 
@@ -28,4 +30,32 @@ export interface Task {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Reminder {
+  id: string;
+  taskId: string;
+  offsetMinutes: number | null;
+  baseAt: string;
+  fireAt: string;
+  firedAt: string | null;
+  dismissedAt: string | null;
+}
+
+/** What the desktop scheduler polls: a pending reminder plus enough task/profile context to notify. */
+export interface UpcomingReminder {
+  id: string;
+  taskId: string;
+  profileId: string;
+  profileName: string;
+  title: string;
+  fireAt: string;
+}
+
+export interface Device {
+  id: string;
+  kind: "web" | "desktop";
+  label: string;
+  notifyHere: boolean;
+  lastSeenAt: string;
 }

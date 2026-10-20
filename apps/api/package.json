@@ -9,9 +9,11 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"no tests yet\"",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "vapid": "node scripts/vapid.mjs"
   },
   "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0",
     "@doer/core": "workspace:*",
     "@hono/zod-validator": "^0.9.1",
     "@neondatabase/serverless": "^1.0.0",

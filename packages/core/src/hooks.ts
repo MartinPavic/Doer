@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDoer } from "./provider";
-import type { CreateProfileInput, CreateTaskInput, TaskView, UpdateTaskInput } from "./schemas";
+import type { CreateProfileInput, CreateTaskInput, TaskView, UpdateProfileInput, UpdateTaskInput } from "./schemas";
 
 export const useProfiles = () => {
   const { api } = useDoer();
@@ -37,7 +37,10 @@ export const useTasks = (profileId: string | null, view: TaskView) => {
 export const useTaskMutations = (profileId: string) => {
   const { api } = useDoer();
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["tasks", profileId] });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["reminders", profileId] }); // due-date changes re-time reminders
+    return qc.invalidateQueries({ queryKey: ["tasks", profileId] });
+  };
   return {
     create: useMutation({
       mutationFn: (input: CreateTaskInput) => api.tasks.create(profileId, input),
@@ -52,4 +55,113 @@ export const useTaskMutations = (profileId: string) => {
       onSuccess: invalidate,
     }),
   };
+};
+
+export const useUpdateProfile = () => {
+  const { api } = useDoer();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateProfileInput & { id: string }) => api.profiles.update(id, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["profiles"] });
+      void qc.invalidateQueries({ queryKey: ["reminders"] }); // quiet hours re-time pending reminders
+    },
+  });
+};
+
+export const useReminders = (profileId: string | null) => {
+  const { api } = useDoer();
+  return useQuery({
+    queryKey: ["reminders", profileId],
+    enabled: !!profileId,
+    queryFn: () => api.reminders.list(profileId!),
+  });
+};
+
+export const useReminderActions = (profileId: string) => {
+  const { api } = useDoer();
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["reminders"] });
+  return {
+    snooze: useMutation({
+      mutationFn: ({ id, minutes }: { id: string; minutes: number }) => api.reminders.snooze(profileId, id, minutes),
+      onSuccess: invalidate,
+    }),
+    dismiss: useMutation({ mutationFn: (id: string) => api.reminders.dismiss(profileId, id), onSuccess: invalidate }),
+  };
+};
+
+/** Reminders that have fired but nobody has acted on yet, across all profiles (server keeps 24h). */
+export const useDueReminders = () => {
+  const { api } = useDoer();
+  return useQuery({
+    queryKey: ["reminders", "due"],
+    queryFn: () => api.reminders.upcoming(),
+    refetchInterval: 15_000,
+    select: (all) => all.filter((r) => new Date(r.fireAt).getTime() <= Date.now()),
+  });
+};
+
+/** Actions on a due reminder; unlike useReminderActions the profile is supplied per call. */
+export const useAlertActions = () => {
+  const { api } = useDoer();
+  const qc = useQueryClient();
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["reminders"] });
+    return qc.invalidateQueries({ queryKey: ["tasks"] });
+  };
+  return {
+    snooze: useMutation({
+      mutationFn: ({ profileId, id, minutes }: { profileId: string; id: string; minutes: number }) =>
+        api.reminders.snooze(profileId, id, minutes),
+      onSuccess: refresh,
+    }),
+    dismiss: useMutation({
+      mutationFn: ({ profileId, id }: { profileId: string; id: string }) => api.reminders.dismiss(profileId, id),
+      onSuccess: refresh,
+    }),
+    done: useMutation({
+      mutationFn: ({ profileId, taskId }: { profileId: string; taskId: string }) =>
+        api.tasks.update(profileId, taskId, { status: "done" }),
+      onSuccess: refresh,
+    }),
+  };
+};
+
+/** This install's server-side record (alerts on/off), registered on first use. */
+export const useThisDevice = () => {
+  const { api, platform } = useDoer();
+  return useQuery({
+    queryKey: ["device"],
+    queryFn: async () => {
+      const me = await platform.device();
+      return api.devices.upsert(me.id, { kind: me.kind, label: me.label });
+    },
+  });
+};
+
+export const useSetNotifyHere = () => {
+  const { api, platform } = useDoer();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (notifyHere: boolean) => {
+      const me = await platform.device();
+      const save = (on: boolean) => api.devices.upsert(me.id, { kind: me.kind, label: me.label, notifyHere: on });
+      if (!platform.enablePush) return save(notifyHere); // desktop: the Rust scheduler honours the flag itself
+
+      if (!notifyHere) {
+        await Promise.allSettled([platform.disablePush?.(), api.push.unsubscribe(me.id)]);
+        return save(false);
+      }
+      // The device row must exist before a subscription can be attached to it.
+      await save(false);
+      const { key } = await api.push.publicKey();
+      if (!key) throw new Error("Push notifications aren't configured on the server yet.");
+      const sub = await platform.enablePush(key);
+      if (!sub) throw new Error("Notification permission was denied in the browser.");
+      await api.push.subscribe(me.id, sub);
+      return save(true);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["device"] }),
+  });
 };

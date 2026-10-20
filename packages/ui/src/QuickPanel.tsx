@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useDoer, useTaskMutations, useTasks } from "@doer/core";
-import { ProfileSwitcher, useActiveProfile } from "./ProfileSwitcher";
+import { ProfileSwitcher } from "./ProfileSwitcher";
+import { useActiveProfile } from "./useActiveProfile";
+import { ReminderAlerts } from "./ReminderAlerts";
 import { TaskRow } from "./TaskList";
 
 /** Compact "add + today" panel shown by the desktop bubble. */
@@ -37,6 +39,7 @@ export function QuickPanel({ onClose }: { onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col gap-3 rounded-3xl border border-line bg-surface p-4 shadow-2xl">
       {header}
+      {session && <ReminderAlerts />}
       <div className="flex min-h-0 flex-1 flex-col gap-3">{body}</div>
       {session && platform.openMainWindow && (
         <button onClick={() => platform.openMainWindow?.()} className="text-sm text-muted transition hover:text-fg">

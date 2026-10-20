@@ -7,7 +7,7 @@
   "types": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "echo \"no tests yet\""
+    "test": "vitest run"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",
@@ -19,10 +19,12 @@
     "@doer/config": "workspace:*",
     "@types/react": "^19.3.0",
     "react": "^19.3.1",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
   },
   "exports": {
     ".": "./src/index.ts",
-    "./schemas": "./src/schemas.ts"
+    "./schemas": "./src/schemas.ts",
+    "./reminders": "./src/reminders.ts"
   }
 }

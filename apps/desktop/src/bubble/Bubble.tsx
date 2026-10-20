@@ -7,7 +7,7 @@ import {
   getCurrentWindow,
 } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
-import { useTasks } from "@doer/core";
+import { useDueReminders, useTasks } from "@doer/core";
 import { QuickPanel, useActiveProfile } from "@doer/ui";
 
 const SIZE = 56;
@@ -192,16 +192,18 @@ export function Bubble() {
 function BubbleFace() {
   const profile = useActiveProfile();
   const { data: tasks = [] } = useTasks(profile?.id ?? null, "today");
-  const count = tasks.length;
+  const { data: due = [] } = useDueReminders();
+  const alerting = due.length > 0;
+  const count = alerting ? due.length : tasks.length;
   return (
     // The window is exactly 56px and clips anything outside it, so the 48px circle leaves a 4px
     // margin for its ring, shadow and badge.
     <span className="relative size-12">
       <span
-        className="flex size-full items-center justify-center rounded-full text-xl font-bold text-white shadow-md ring-2 ring-white/80"
+        className={`flex size-full items-center justify-center rounded-full text-xl font-bold text-white shadow-md ring-2 ring-white/80 ${alerting ? "animate-pulse" : ""}`}
         style={{ background: profile?.color ?? "var(--accent)" }}
       >
-        ✓
+        {alerting ? "🔔" : "✓"}
       </span>
       {count > 0 && (
         <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-[11px] font-semibold text-white ring-2 ring-white">

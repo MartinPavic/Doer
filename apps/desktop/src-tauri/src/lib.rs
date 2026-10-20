@@ -3,6 +3,8 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, RunEvent, WindowEvent,
 };
+mod scheduler;
+
 use tauri_plugin_autostart::MacosLauncher;
 
 const KEYCHAIN_SERVICE: &str = "com.doer.app";
@@ -31,6 +33,49 @@ fn secure_remove(key: String) -> Result<(), String> {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+#[derive(serde::Serialize)]
+struct DeviceInfo {
+    id: String,
+    label: String,
+}
+
+/// Stable identity of this install: a UUID persisted in the app config dir (the server keys
+/// "alert on this device?" off it, and the reminder scheduler uses the same id).
+fn device_id(app: &AppHandle) -> String {
+    let path = app.path().app_config_dir().ok().map(|d| d.join("device-id"));
+    if let Some(p) = &path {
+        if let Ok(existing) = std::fs::read_to_string(p) {
+            let id = existing.trim().to_string();
+            if !id.is_empty() {
+                return id;
+            }
+        }
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    if let Some(p) = &path {
+        let _ = std::fs::create_dir_all(p.parent().unwrap());
+        let _ = std::fs::write(p, &id);
+    }
+    id
+}
+
+#[tauri::command]
+fn device_info(app: AppHandle) -> DeviceInfo {
+    DeviceInfo { id: device_id(&app), label: device_label() }
+}
+
+fn device_label() -> String {
+    let label = std::process::Command::new("scutil")
+        .args(["--get", "ComputerName"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "Mac".into());
+    label
 }
 
 #[tauri::command]
@@ -128,9 +173,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![secure_get, secure_set, secure_remove, show_main_window])
+        .invoke_handler(tauri::generate_handler![secure_get, secure_set, secure_remove, show_main_window, device_info, scheduler::sync_reminders])
         .setup(|app| {
             setup_tray(app.handle())?;
+            scheduler::start(app.handle().clone(), device_id(app.handle()), device_label());
             if dock_hidden_marker(app.handle()).is_some_and(|p| p.exists()) {
                 let _ = app.set_dock_visibility(false);
             }

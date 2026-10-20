@@ -2,6 +2,11 @@ import { DoerProvider, type Platform } from "@doer/core";
 import { AppShell } from "@doer/ui";
 
 // Browser can't hold secrets or notify yet (Phase 4 adds Web Push); cookies carry the session.
+const b64urlToBytes = (s: string) => {
+  const raw = atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "="));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+};
+
 const platform: Platform = {
   isDesktop: false,
   notify: async ({ title, body }) => {
@@ -13,6 +18,30 @@ const platform: Platform = {
     remove: async (k) => localStorage.removeItem(k),
   },
   openExternal: async (url) => void window.open(url, "_blank", "noopener"),
+  async enablePush(vapidPublicKey) {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("This browser doesn't support push notifications.");
+    if ((await Notification.requestPermission()) !== "granted") return null;
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: b64urlToBytes(vapidPublicKey),
+    });
+    const json = sub.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return null;
+    return { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } };
+  },
+  async disablePush() {
+    const reg = await navigator.serviceWorker?.getRegistration("/sw.js");
+    await (await reg?.pushManager.getSubscription())?.unsubscribe();
+  },
+  async device() {
+    let id = localStorage.getItem("doer-device-id");
+    if (!id) localStorage.setItem("doer-device-id", (id = crypto.randomUUID()));
+    const ua = navigator.userAgent;
+    const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : "Safari";
+    return { id, kind: "web", label: `${browser} (web)` };
+  },
 };
 
 export default function App() {

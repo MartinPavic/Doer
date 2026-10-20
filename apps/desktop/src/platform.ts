@@ -23,8 +23,16 @@ export const platform: Platform = {
   },
   secureStore,
   openExternal: (url) => openUrl(url),
+  async device() {
+    const { id, label } = await invoke<{ id: string; label: string }>("device_info");
+    return { id, kind: "desktop", label };
+  },
   openMainWindow: () => invoke("show_main_window"),
-  broadcast: (event, payload) => emit(event, { from: self, payload } satisfies Envelope),
+  broadcast: async (event, payload) => {
+    // A local write can add/move a reminder: make the Rust scheduler refetch instead of waiting up to 30s.
+    if (event === "data:changed" || event === "auth:changed") void invoke("sync_reminders");
+    await emit(event, { from: self, payload } satisfies Envelope);
+  },
   // Tauri events reach every window, including the sender; drop our own so we don't refetch twice.
   subscribe: (event, handler) =>
     listen<Envelope>(event, ({ payload }) => {

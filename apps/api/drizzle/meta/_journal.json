@@ -15,6 +15,13 @@
       "when": 1792487083190,
       "tag": "0001_stormy_zuras",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792491206756,
+      "tag": "0002_crazy_weapon_omega",
+      "breakpoints": true
     }
   ]
 }

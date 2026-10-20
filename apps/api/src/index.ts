@@ -2,13 +2,19 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { zValidator } from "@hono/zod-validator";
 import { and, asc, count, eq } from "drizzle-orm";
-import { createProfileInput, createTaskInput, listTasksQuery, updateProfileInput, updateTaskInput } from "@doer/core/schemas";
+import { z } from "zod";
+import {
+  createProfileInput, createTaskInput, deviceInput, listTasksQuery, pushSubscriptionInput, snoozeInput, updateProfileInput, updateTaskInput,
+} from "@doer/core/schemas";
 import { allowedOrigins, createAuth, type AuthEnv } from "./auth";
 import { getDb, type Db } from "./db/client";
 import { profile } from "./db/schema";
+import { dispatchDueReminders } from "./dispatch";
+import type { PushEnv } from "./push";
+import { forUser } from "./user-scope";
 import { withProfile } from "./with-profile";
 
-export type Env = AuthEnv;
+export type Env = AuthEnv & PushEnv;
 type Vars = { userId: string; db: Db };
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
@@ -44,8 +50,8 @@ api.post("/profiles", zValidator("json", createProfileInput), async (c) => {
 });
 
 api.patch("/profiles/:id", zValidator("json", updateProfileInput), async (c) => {
-  const [p] = await c.var.db.update(profile).set(c.req.valid("json"))
-    .where(and(eq(profile.id, c.req.param("id")), eq(profile.userId, c.var.userId))).returning();
+  const s = await withProfile(c.var.db, c.var.userId, c.req.param("id"));
+  const p = s && (await s.updateSettings(c.req.valid("json")));
   return p ? c.json(p) : c.json({ error: "not found" }, 404);
 });
 
@@ -88,10 +94,54 @@ api.delete("/profiles/:profileId/tasks/:id", async (c) => {
   return s && (await s.tasks.remove(c.req.param("id"))) ? c.body(null, 204) : notFound(c);
 });
 
+// --- reminders --------------------------------------------------------------
+api.get("/profiles/:profileId/reminders", async (c) => {
+  const s = await scoped(c);
+  return s ? c.json(await s.reminders.list()) : notFound(c);
+});
+
+api.post("/profiles/:profileId/reminders/:id/snooze", zValidator("json", snoozeInput), async (c) => {
+  const s = await scoped(c);
+  const r = s && (await s.reminders.snooze(c.req.param("id"), c.req.valid("json").minutes));
+  return r ? c.json(r) : notFound(c);
+});
+
+api.post("/profiles/:profileId/reminders/:id/dismiss", async (c) => {
+  const s = await scoped(c);
+  const r = s && (await s.reminders.dismiss(c.req.param("id")));
+  return r ? c.json(r) : notFound(c);
+});
+
+// --- devices + desktop feed (user-scoped, not profile-scoped) -----------------
+api.get("/devices", async (c) => c.json(await forUser(c.var.db, c.var.userId).devices.list()));
+
+api.put("/devices/:id", zValidator("param", z.object({ id: z.uuid() })), zValidator("json", deviceInput), async (c) => {
+  const d = await forUser(c.var.db, c.var.userId).devices.upsert(c.req.valid("param").id, c.req.valid("json"));
+  return d ? c.json(d) : c.json({ error: "not found" }, 404);
+});
+
+api.get("/push/public-key", (c) => c.json({ key: c.env.VAPID_PUBLIC_KEY ?? null }));
+
+api.put("/devices/:id/push-subscription", zValidator("param", z.object({ id: z.uuid() })), zValidator("json", pushSubscriptionInput), async (c) => {
+  const ok = await forUser(c.var.db, c.var.userId).push.set(c.req.valid("param").id, c.req.valid("json"));
+  return ok ? c.body(null, 204) : c.json({ error: "not found" }, 404);
+});
+
+api.delete("/devices/:id/push-subscription", zValidator("param", z.object({ id: z.uuid() })), async (c) => {
+  await forUser(c.var.db, c.var.userId).push.clear(c.req.valid("param").id);
+  return c.body(null, 204);
+});
+
+api.get("/reminders/upcoming", async (c) =>
+  c.json(await forUser(c.var.db, c.var.userId).upcomingFor(c.req.query("deviceId"))),
+);
+
 app.route("/", api);
 
 export default {
   fetch: app.fetch,
-  // Cron entry point; reminder dispatch etc. added in later phases.
-  async scheduled(_event: ScheduledController, _env: Env, _ctx: ExecutionContext) {},
+  // Every minute: reminder push dispatch (token refresh and watch renewal join in Phase 6).
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(dispatchDueReminders(getDb(env.DATABASE_URL), env));
+  },
 };

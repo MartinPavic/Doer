@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { quietHours } from "./reminders";
 
 export const profileKind = z.enum(["work", "private"]);
 export type ProfileKind = z.infer<typeof profileKind>;
@@ -15,10 +16,14 @@ export const createProfileInput = z.object({
 });
 export type CreateProfileInput = z.infer<typeof createProfileInput>;
 
+const reminderOffset = z.number().int().min(0).max(60 * 24 * 30);
+
 export const updateProfileInput = z.object({
   name: z.string().trim().min(1).max(60),
   color,
-  defaultReminderOffset: z.number().int().min(0).max(60 * 24 * 7),
+  defaultReminderOffset: reminderOffset,
+  allDayReminderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  quietHours: quietHours.nullable(),
 }).partial();
 export type UpdateProfileInput = z.infer<typeof updateProfileInput>;
 
@@ -32,6 +37,8 @@ const taskFields = {
   tz: z.string().max(64).nullable(),
   rrule: z.string().max(500).nullable(),
   parentId: z.uuid().nullable(),
+  /** Minutes before due to remind. Omit on create for the profile default; null for no reminder. */
+  reminderOffset: reminderOffset.nullable(),
 };
 
 export const createTaskInput = z.object({ title: taskFields.title }).extend({
@@ -57,3 +64,19 @@ export const listTasksQuery = z.object({
   dayEnd: z.iso.datetime({ offset: true }).optional(),
 });
 export type ListTasksQuery = z.infer<typeof listTasksQuery>;
+
+export const snoozeInput = z.object({ minutes: z.number().int().min(1).max(60 * 24 * 7) });
+export type SnoozeInput = z.infer<typeof snoozeInput>;
+
+export const deviceInput = z.object({
+  kind: z.enum(["web", "desktop"]),
+  label: z.string().trim().min(1).max(100),
+  notifyHere: z.boolean().optional(),
+});
+export type DeviceInput = z.infer<typeof deviceInput>;
+
+export const pushSubscriptionInput = z.object({
+  endpoint: z.url(),
+  keys: z.object({ p256dh: z.string(), auth: z.string() }),
+});
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionInput>;

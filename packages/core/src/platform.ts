@@ -8,6 +8,12 @@ export interface Platform {
     remove(key: string): Promise<void>;
   };
   openExternal(url: string): Promise<void>;
+  /** Stable id + name of this install; the server tracks it to decide where reminders alert. */
+  device(): Promise<{ id: string; kind: "web" | "desktop"; label: string }>;
+  /** Web only: asks permission and creates a Web Push subscription; null if the user declined. */
+  enablePush?(vapidPublicKey: string): Promise<{ endpoint: string; keys: { p256dh: string; auth: string } } | null>;
+  /** Web only: removes this browser's push subscription. */
+  disablePush?(): Promise<void>;
   /** Desktop only: bring the main window to the front (used by the bubble). */
   openMainWindow?(): Promise<void>;
   /** Desktop only: cross-window messaging, so the bubble and main window stay in sync. */

@@ -1,5 +1,7 @@
-import type { CreateProfileInput, CreateTaskInput, ListTasksQuery, UpdateProfileInput, UpdateTaskInput } from "./schemas";
-import type { Profile, Task } from "./types";
+import type {
+  CreateProfileInput, CreateTaskInput, DeviceInput, ListTasksQuery, PushSubscriptionInput, UpdateProfileInput, UpdateTaskInput,
+} from "./schemas";
+import type { Device, Profile, Reminder, Task, UpcomingReminder } from "./types";
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -54,6 +56,25 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
         req<Task>(`/profiles/${profileId}/tasks/${id}`, json("PATCH", input)),
       remove: (profileId: string, id: string) =>
         req<void>(`/profiles/${profileId}/tasks/${id}`, { method: "DELETE" }),
+    },
+    reminders: {
+      list: (profileId: string) => req<Reminder[]>(`/profiles/${profileId}/reminders`),
+      snooze: (profileId: string, id: string, minutes: number) =>
+        req<Reminder>(`/profiles/${profileId}/reminders/${id}/snooze`, json("POST", { minutes })),
+      dismiss: (profileId: string, id: string) =>
+        req<Reminder>(`/profiles/${profileId}/reminders/${id}/dismiss`, { method: "POST" }),
+      upcoming: (deviceId?: string) =>
+        req<UpcomingReminder[]>(`/reminders/upcoming${deviceId ? `?deviceId=${deviceId}` : ""}`),
+    },
+    devices: {
+      list: () => req<Device[]>("/devices"),
+      upsert: (id: string, input: DeviceInput) => req<Device>(`/devices/${id}`, json("PUT", input)),
+    },
+    push: {
+      publicKey: () => req<{ key: string | null }>("/push/public-key"),
+      subscribe: (deviceId: string, input: PushSubscriptionInput) =>
+        req<void>(`/devices/${deviceId}/push-subscription`, json("PUT", input)),
+      unsubscribe: (deviceId: string) => req<void>(`/devices/${deviceId}/push-subscription`, { method: "DELETE" }),
     },
   };
 }
