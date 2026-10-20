@@ -8,6 +8,8 @@ export interface Platform {
     remove(key: string): Promise<void>;
   };
   openExternal(url: string): Promise<void>;
+  /** Saves a text file for the user (browser download / desktop Downloads folder). Resolves to where it went. */
+  saveFile(name: string, content: string): Promise<string>;
   /** Stable id + name of this install; the server tracks it to decide where reminders alert. */
   device(): Promise<{ id: string; kind: "web" | "desktop"; label: string }>;
   /** Web only: asks permission and creates a Web Push subscription; null if the user declined. */

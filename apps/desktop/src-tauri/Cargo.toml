@@ -33,6 +33,8 @@ uuid = { version = "1.28.0", features = ["v4"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 tokio = { version = "1.54.0", features = ["time", "sync", "macros"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
+tauri-plugin-updater = "2.14.0"
+tauri-plugin-process = "2.4.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

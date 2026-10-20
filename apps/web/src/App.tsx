@@ -35,6 +35,13 @@ const platform: Platform = {
     const reg = await navigator.serviceWorker?.getRegistration("/sw.js");
     await (await reg?.pushManager.getSubscription())?.unsubscribe();
   },
+  async saveFile(name, content) {
+    const url = URL.createObjectURL(new Blob([content], { type: "application/json" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: name });
+    a.click();
+    URL.revokeObjectURL(url);
+    return "your browser's downloads";
+  },
   async device() {
     let id = localStorage.getItem("doer-device-id");
     if (!id) localStorage.setItem("doer-device-id", (id = crypto.randomUUID()));
@@ -46,7 +53,7 @@ const platform: Platform = {
 
 export default function App() {
   return (
-    <DoerProvider platform={platform} baseUrl="">
+    <DoerProvider platform={platform} baseUrl={import.meta.env.VITE_API_URL ?? ""}>
       <AppShell />
     </DoerProvider>
   );

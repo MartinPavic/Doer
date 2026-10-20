@@ -4,3 +4,14 @@ compatibility_date = "2026-10-01"
 
 [triggers]
 crons = ["* * * * *"] # reminders, token refresh, watch renewal (Phase 4+)
+
+# Abuse protection (Cloudflare rate-limit bindings; counted per key, per Cloudflare location).
+[[ratelimits]]
+name = "AUTH_LIMITER" # sign-in / sign-up attempts, keyed by client IP
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "API_LIMITER" # authenticated API traffic, keyed by user
+namespace_id = "1002"
+simple = { limit = 300, period = 60 }

@@ -16,6 +16,8 @@ export type AuthEnv = {
   WEB_ORIGIN: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** Set when the web app and API are on sibling subdomains (app.example.com / api.example.com): e.g. "example.com". */
+  COOKIE_DOMAIN?: string;
 };
 
 /** Browser/webview origins allowed to call the API (CORS + Better Auth trusted origins). */
@@ -36,6 +38,11 @@ export const createAuth = (env: AuthEnv) => {
     trustedOrigins: allowedOrigins(env),
     database: drizzleAdapter(db, { provider: "pg", schema }),
     emailAndPassword: { enabled: true },
+    advanced: {
+      useSecureCookies: env.BETTER_AUTH_URL.startsWith("https://"),
+      // The session cookie must be visible to both the web app's and the API's hostnames.
+      ...(env.COOKIE_DOMAIN && { crossSubDomainCookies: { enabled: true, domain: env.COOKIE_DOMAIN } }),
+    },
     socialProviders:
       env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
         ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }

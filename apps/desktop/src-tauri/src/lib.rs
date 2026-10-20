@@ -78,6 +78,28 @@ fn device_label() -> String {
     label
 }
 
+/// Writes a user-requested export into ~/Downloads (never overwriting) and reveals it in Finder.
+#[tauri::command]
+fn save_export(app: AppHandle, name: String, content: String) -> Result<String, String> {
+    // The name comes from the webview: keep it a plain file name, no path tricks.
+    let safe: String = name.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.')).collect();
+    if safe.is_empty() || safe.starts_with('.') {
+        return Err("invalid file name".into());
+    }
+    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    let (stem, ext) = safe.rsplit_once('.').map(|(s, e)| (s.to_string(), format!(".{e}"))).unwrap_or((safe.clone(), String::new()));
+    let mut path = dir.join(&safe);
+    let mut n = 1;
+    while path.exists() {
+        path = dir.join(format!("{stem}-{n}{ext}"));
+        n += 1;
+    }
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg("-R").arg(&path).spawn();
+    Ok(path.display().to_string())
+}
+
 #[tauri::command]
 fn show_main_window(app: AppHandle) {
     show_main(&app);
@@ -173,8 +195,14 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![secure_get, secure_set, secure_remove, show_main_window, device_info, scheduler::sync_reminders])
+        .plugin(tauri_plugin_process::init())
+        .invoke_handler(tauri::generate_handler![secure_get, secure_set, secure_remove, show_main_window, device_info, save_export, scheduler::sync_reminders])
         .setup(|app| {
+            // The updater needs a signing key + endpoint, which only release builds configure (see
+            // tauri.release.conf.json). Dev builds skip it instead of failing on a missing config.
+            if app.config().plugins.0.contains_key("updater") {
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             setup_tray(app.handle())?;
             scheduler::start(app.handle().clone(), device_id(app.handle()), device_label());
             if dock_hidden_marker(app.handle()).is_some_and(|p| p.exists()) {

@@ -1,7 +1,7 @@
 import type {
   CreateProfileInput, CreateTaskInput, DeviceInput, ListTasksQuery, PushSubscriptionInput, UpdateProfileInput, UpdateTaskInput,
 } from "./schemas";
-import type { Device, Profile, Reminder, Task, UpcomingReminder } from "./types";
+import type { CalendarAccount, CalendarInfo, Device, ExternalEvent, Profile, Reminder, Task, UpcomingReminder } from "./types";
 
 export interface ApiClientOptions {
   baseUrl: string;
@@ -57,7 +57,19 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
       remove: (profileId: string, id: string) =>
         req<void>(`/profiles/${profileId}/tasks/${id}`, { method: "DELETE" }),
     },
+    calendarAccounts: {
+      list: (profileId: string) => req<CalendarAccount[]>(`/profiles/${profileId}/calendar-accounts`),
+      /** Returns the Google consent URL to open in a browser; the server finishes the link on its callback. */
+      startGoogle: (profileId: string, platform: "web" | "desktop") =>
+        req<{ url: string }>(`/profiles/${profileId}/calendar-accounts/google/start`, json("POST", { platform })),
+      sync: (profileId: string) => req<{ synced: number; errors: number }>(`/profiles/${profileId}/calendar-accounts/sync`, { method: "POST" }),
+      remove: (profileId: string, id: string) => req<void>(`/profiles/${profileId}/calendar-accounts/${id}`, { method: "DELETE" }),
+      updateCalendar: (profileId: string, id: string, patch: { selected?: boolean; isWriteTarget?: boolean }) =>
+        req<CalendarInfo>(`/profiles/${profileId}/calendars/${id}`, json("PATCH", patch)),
+    },
     calendar: {
+      events: (profileId: string, from: string, to: string) =>
+        req<ExternalEvent[]>(`/profiles/${profileId}/calendar/events?${new URLSearchParams({ from, to })}`),
       /** Scheduled tasks overlapping [from, to), plus every recurring task (the client expands those). */
       list: (profileId: string, from: string, to: string) =>
         req<Task[]>(`/profiles/${profileId}/calendar?${new URLSearchParams({ from, to })}`),
@@ -71,6 +83,8 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
       upcoming: (deviceId?: string) =>
         req<UpcomingReminder[]>(`/reminders/upcoming${deviceId ? `?deviceId=${deviceId}` : ""}`),
     },
+    /** Everything the user owns as JSON (no secrets), for backup. */
+    exportData: () => req<unknown>("/export"),
     devices: {
       list: () => req<Device[]>("/devices"),
       upsert: (id: string, input: DeviceInput) => req<Device>(`/devices/${id}`, json("PUT", input)),

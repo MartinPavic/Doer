@@ -11,6 +11,7 @@ export interface Profile {
   quietHours: QuietHours | null;
   defaultReminderOffset: number;
   allDayReminderTime: string;
+  mirrorTasks: boolean;
   createdAt: string;
 }
 
@@ -28,6 +29,7 @@ export interface Task {
   tz: string | null;
   rrule: string | null;
   completedAt: string | null;
+  mirror: boolean | null;
   createdAt: string;
   updatedAt: string;
   /** Calendar responses only, for recurring tasks: occurrences already completed in the requested window. */
@@ -60,4 +62,36 @@ export interface Device {
   label: string;
   notifyHere: boolean;
   lastSeenAt: string;
+}
+
+export interface CalendarInfo {
+  id: string;
+  name: string;
+  color: string | null;
+  selected: boolean;
+  isWriteTarget: boolean;
+  /** Owner/writer access: eligible as a mirror target. */
+  writable: boolean;
+  lastSyncedAt: string | null;
+}
+
+export interface CalendarAccount {
+  id: string;
+  provider: "google" | "microsoft";
+  email: string;
+  /** "reconnect": the provider rejected our access (revoked/expired) and the user must sign in again. */
+  status: "active" | "reconnect";
+  calendars: CalendarInfo[];
+}
+
+/** An event from a connected calendar (read-only in Doer). All-day events carry UTC-midnight dates. */
+export interface ExternalEvent {
+  id: string;
+  calendarId: string;
+  title: string;
+  startAt: string;
+  endAt: string | null;
+  allDay: boolean;
+  color: string | null;
+  link: string | null;
 }

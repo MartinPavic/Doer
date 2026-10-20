@@ -90,7 +90,7 @@ async function applyLocal(op: Op): Promise<Task | undefined> {
     const t: Task = {
       id: i.id, profileId: op.profileId, parentId: i.parentId ?? null, title: i.title, notes: i.notes ?? null,
       status: "todo", priority: i.priority ?? 0, startAt: i.startAt ?? null, dueAt: i.dueAt ?? null,
-      allDay: i.allDay ?? false, tz: i.tz ?? null, rrule: i.rrule ?? null, completedAt: null,
+      allDay: i.allDay ?? false, tz: i.tz ?? null, rrule: i.rrule ?? null, completedAt: null, mirror: i.mirror ?? null,
       createdAt: now, updatedAt: now,
     };
     await upsertTask(t);
@@ -196,6 +196,7 @@ export function withOfflineSupport(api: ApiClient): ApiClient {
       },
     },
     calendar: {
+      ...api.calendar, // external events are server-side data: online only
       async list(profileId, from, to) {
         try {
           return await api.calendar.list(profileId, from, to);

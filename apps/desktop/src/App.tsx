@@ -3,6 +3,7 @@ import { AppShell } from "@doer/ui";
 import { enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { DesktopProvider } from "./DesktopProvider";
 import { syncActiveProfile } from "./platform";
+import { UpdateBanner } from "./UpdateBanner";
 
 // Launch at login by default (reminders need the app running); the user can turn it off later.
 async function initAutostart() {
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <DesktopProvider>
       <AppShell />
+      <UpdateBanner />
     </DesktopProvider>
   );
 }

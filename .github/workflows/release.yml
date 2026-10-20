@@ -1,0 +1,68 @@
+# Builds, signs, notarizes and publishes the macOS app when you push a tag like v0.2.0.
+# Needs the secrets/variables listed in docs/RELEASING.md. Creates a DRAFT release: review it, then publish.
+name: Release desktop
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+
+      - name: Fill in release settings
+        working-directory: apps/desktop/src-tauri
+        env:
+          UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          test -n "$UPDATER_PUBKEY" || { echo "TAURI_UPDATER_PUBKEY secret is missing"; exit 1; }
+          test -n "$API_URL" || { echo "API_URL repository variable is missing"; exit 1; }
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ "$GITHUB_REF_TYPE" = "tag" ] || VERSION="$(jq -r .version tauri.conf.json)"
+          jq --arg v "$VERSION" '.version = $v' tauri.conf.json > tauri.conf.tmp && mv tauri.conf.tmp tauri.conf.json
+          sed -i '' \
+            -e "s#__UPDATER_PUBKEY__#${UPDATER_PUBKEY}#" \
+            -e "s#__REPO__#${GITHUB_REPOSITORY}#" \
+            -e "s#__API_URL__#${API_URL}#" \
+            tauri.release.conf.json
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Where the app talks to (baked in at build time)
+          VITE_API_URL: ${{ vars.API_URL }}
+          DOER_API_URL: ${{ vars.API_URL }}
+          VITE_SENTRY_DSN: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          # Update signing (Tauri's own key pair, unrelated to Apple)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple code signing + notarization
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: Doer ${{ github.ref_name }}
+          releaseBody: See the assets below to download Doer for macOS.
+          releaseDraft: true
+          includeUpdaterJson: true
+          args: --target universal-apple-darwin --config src-tauri/tauri.release.conf.json

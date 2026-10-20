@@ -5,3 +5,15 @@ WEB_ORIGIN=http://localhost:5173
 # optional: Google sign-in
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+
+# Google Calendar (connected accounts): Google OAuth client, plus a key that encrypts stored refresh tokens
+# (generate with: openssl rand -base64 32). GOOGLE_* are shared with the optional Google sign-in above.
+TOKEN_ENC_KEY=
+
+# Production only: shared cookie domain when web and API are on sibling subdomains, e.g. example.com
+COOKIE_DOMAIN=
+# Optional error reporting (nothing is sent when empty)
+SENTRY_DSN=
+# Key rotation: put the NEW key in TOKEN_ENC_KEY and the old one here. Tokens are re-encrypted automatically
+# (every minute, a few at a time); once the log shows nothing left to rotate, remove this line.
+TOKEN_ENC_KEY_PREVIOUS=

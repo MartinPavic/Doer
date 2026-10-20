@@ -87,3 +87,5 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .fc a { color: inherit; text-decoration: none; }
 .doer-done { opacity: 0.45; text-decoration: line-through; }
 .doer-overlay { opacity: 0.4; cursor: default !important; }
+.doer-external { border-left-width: 3px !important; }
+.doer-external .fc-event-title, .doer-external .fc-event-time { color: var(--fg); }

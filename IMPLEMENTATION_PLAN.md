@@ -188,3 +188,17 @@ Ordering rationale: Phase 3 (bubble) is the riskiest UI; Phase 4 needs the deskt
 - **Google "unverified app"** warning / 100-user cap is acceptable for personal use only.
 - Tauri 3 alpha builds are rumoured but unconfirmed; stay on 2.12.x.
 - Out of scope for v1: mobile apps, Windows/Linux builds, shared/team tasks, attachments, realtime push (SSE/WebSocket), full offline editing on web.
+
+## 9. Progress and deviations (updated as work lands)
+
+| Phase | Status | Notes |
+|---|---|---|
+| 0 Scaffold | Done | |
+| 1 Tasks, auth, profiles | Done locally | Cloudflare deploy: workflows ready (`docs/RELEASING.md`), needs your Cloudflare account. |
+| 2 Desktop shell | Done | |
+| 3 Bubble | Done | Full-screen overlay uses window collection behaviour + hiding the Dock icon instead of `tauri-nspanel`. |
+| 4 Reminders | Done | macOS notifications can't carry buttons via the Tauri plugin; actions live on an in-app pop-out card and alert cards. Custom date/time picker added. |
+| 5 Calendar view | Done | FullCalendar pinned to 6.1.x. No TanStack Router (a two-page switch didn't need it). Recurrence: completing a task advances it to its next occurrence (history in `task_occurrence`). |
+| 6 Google | 6a + 6b done; 6c open | 6a connect/import, 6b mirror tasks out. **6c (Google edits flow back into tasks, deletes both ways, echo suppression, webhooks + renewal) not built.** OAuth return uses a result page + polling instead of a `doer://` deep link. |
+| 7 Outlook | Skipped (decision) | The `calendar_account.provider` enum already allows `microsoft`. |
+| 8 Hardening + release | Mostly done | Done: JSON export, rate limits, security headers, CSP, error reporting (opt-in), token-key rotation, PWA, app icons, updater, signing/notarization + release and deploy workflows. **Not done: Postgres RLS** (needs a non-owner DB role and a transaction-per-request driver switch; app-level isolation is covered by integration tests). Needs your accounts: Apple Developer, GitHub, Cloudflare. |

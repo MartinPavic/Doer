@@ -23,6 +23,7 @@ export const platform: Platform = {
   },
   secureStore,
   openExternal: (url) => openUrl(url),
+  saveFile: (name, content) => invoke<string>("save_export", { name, content }),
   async device() {
     const { id, label } = await invoke<{ id: string; label: string }>("device_info");
     return { id, kind: "desktop", label };

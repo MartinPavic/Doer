@@ -25,6 +25,8 @@ export const updateProfileInput = z.object({
   defaultReminderOffset: reminderOffset,
   allDayReminderTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   quietHours: quietHours.nullable(),
+  /** Mirror this profile's timed tasks into its write-target calendar. */
+  mirrorTasks: z.boolean(),
 }).partial();
 export type UpdateProfileInput = z.infer<typeof updateProfileInput>;
 
@@ -40,6 +42,8 @@ const taskFields = {
   parentId: z.uuid().nullable(),
   /** Minutes before due to remind. Omit on create for the profile default; null for no reminder. */
   reminderOffset: reminderOffset.nullable(),
+  /** Overrides the profile's mirroring: true = always, false = never, null = follow the profile. */
+  mirror: z.boolean().nullable(),
 };
 
 export const createTaskInput = z.object({ title: taskFields.title }).extend({

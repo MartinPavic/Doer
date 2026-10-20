@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from
 import type { CreateTaskInput, ListTasksQuery, UpdateProfileInput, UpdateTaskInput } from "@doer/core/schemas";
 import { nextOccurrence } from "@doer/core/recurrence";
 import { baseFireAt, deferOutOfQuiet, quietHours } from "@doer/core/reminders";
+import { calendarsFor } from "./calendar-service";
 import type { Db } from "./db/client";
 import { profile, reminder, task, taskOccurrence } from "./db/schema";
 
@@ -55,6 +56,7 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
 
   return {
     profile: p,
+    calendars: calendarsFor(db, p.id),
     /** Updates profile settings; quiet-hours / all-day-time changes re-time every pending reminder. */
     async updateSettings(input: UpdateProfileInput) {
       const [updated] = await db.update(profile).set(input).where(eq(profile.id, p.id)).returning();

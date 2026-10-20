@@ -191,3 +191,66 @@ export const useCalendarOverlay = (profileIds: string[], range: { from: string; 
     combine: (results) => results.flatMap((r) => r.data ?? []),
   });
 };
+
+export const useCalendarAccounts = (profileId: string | null, pollMs: number | false = false) => {
+  const { api } = useDoer();
+  return useQuery({
+    queryKey: ["calendar-accounts", profileId],
+    enabled: !!profileId,
+    queryFn: () => api.calendarAccounts.list(profileId!),
+    refetchInterval: pollMs,
+  });
+};
+
+/** Opens Google's consent page in the system browser; the server links the account when it comes back. */
+export const useConnectGoogle = (profileId: string) => {
+  const { api, platform } = useDoer();
+  return useMutation({
+    mutationFn: async () => {
+      const { url } = await api.calendarAccounts.startGoogle(profileId, platform.isDesktop ? "desktop" : "web");
+      await platform.openExternal(url);
+    },
+  });
+};
+
+export const useCalendarAccountActions = (profileId: string) => {
+  const { api } = useDoer();
+  const qc = useQueryClient();
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["calendar-accounts", profileId] });
+    return qc.invalidateQueries({ queryKey: ["external-events"] });
+  };
+  return {
+    toggleCalendar: useMutation({
+      mutationFn: ({ id, selected }: { id: string; selected: boolean }) => api.calendarAccounts.updateCalendar(profileId, id, { selected }),
+      onSuccess: refresh,
+    }),
+    setWriteTarget: useMutation({
+      mutationFn: (id: string) => api.calendarAccounts.updateCalendar(profileId, id, { isWriteTarget: true }),
+      onSuccess: refresh,
+    }),
+    disconnect: useMutation({ mutationFn: (id: string) => api.calendarAccounts.remove(profileId, id), onSuccess: refresh }),
+    syncNow: useMutation({ mutationFn: () => api.calendarAccounts.sync(profileId), onSuccess: refresh }),
+  };
+};
+
+export const useExternalEvents = (profileId: string | null, range: { from: string; to: string } | null) => {
+  const { api } = useDoer();
+  return useQuery({
+    queryKey: ["external-events", profileId, range?.from, range?.to],
+    enabled: !!profileId && !!range,
+    queryFn: () => api.calendar.events(profileId!, range!.from, range!.to),
+    placeholderData: (prev) => prev,
+  });
+};
+
+/** Downloads a JSON backup of everything the user owns. Resolves to a human-readable location. */
+export const useExportData = () => {
+  const { api, platform } = useDoer();
+  return useMutation({
+    mutationFn: async () => {
+      const data = await api.exportData();
+      return platform.saveFile(`doer-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
+    },
+  });
+};
