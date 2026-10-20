@@ -26,12 +26,14 @@ export function TaskList({ profile }: { profile: Profile }) {
   const now = Date.now();
   return (
     <div className="space-y-4">
-      <nav className="flex gap-4 border-b border-neutral-200 text-sm dark:border-neutral-800">
+      <nav className="flex gap-1">
         {VIEWS.map((v) => (
           <button
             key={v.id}
             onClick={() => setView(v.id)}
-            className={`-mb-px border-b-2 pb-2 ${view === v.id ? "border-current font-medium" : "border-transparent text-neutral-500"}`}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+              view === v.id ? "bg-accent text-accent-fg" : "text-muted hover:bg-surface-2 hover:text-fg"
+            }`}
           >
             {v.label}
           </button>
@@ -42,43 +44,53 @@ export function TaskList({ profile }: { profile: Profile }) {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={`Add a ${profile.name.toLowerCase()} task…`}
-          className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          placeholder={`Add a ${profile.name.toLowerCase()} task and press Enter…`}
+          className="w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-fg shadow-sm outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/20"
         />
       </form>
 
-      {isPending && <p className="text-sm text-neutral-500">Loading…</p>}
-      {error && <p className="text-sm text-red-600">{error.message}</p>}
-      {!isPending && tasks.length === 0 && <p className="text-sm text-neutral-500">Nothing here.</p>}
+      {error && <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error.message}</p>}
 
-      <ul className="divide-y divide-neutral-100 dark:divide-neutral-800">
-        {tasks.map((t) => {
-          const overdue = t.status === "todo" && t.dueAt && new Date(t.dueAt).getTime() < now;
-          return (
-            <li key={t.id} className="group flex items-center gap-3 py-2">
-              <input
-                type="checkbox"
-                checked={t.status === "done"}
-                onChange={(e) => update.mutate({ id: t.id, status: e.target.checked ? "done" : "todo" })}
-                className="size-4"
-              />
-              <div className="min-w-0 flex-1">
-                <p className={`truncate text-sm ${t.status === "done" ? "text-neutral-400 line-through" : ""}`}>{t.title}</p>
-                {t.dueAt && (
-                  <p className={`text-xs ${overdue ? "text-red-600" : "text-neutral-500"}`}>{fmt(t.dueAt)}</p>
-                )}
-              </div>
-              <button
-                onClick={() => remove.mutate(t.id)}
-                aria-label="Delete task"
-                className="text-neutral-400 opacity-0 hover:text-red-600 group-hover:opacity-100"
-              >
-                ✕
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {isPending ? (
+        <p className="py-8 text-center text-sm text-muted">Loading…</p>
+      ) : tasks.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-line py-12 text-center">
+          <p className="text-2xl">✨</p>
+          <p className="mt-1 text-sm text-muted">Nothing here. Add a task above.</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+          {tasks.map((t) => {
+            const done = t.status === "done";
+            const overdue = !done && t.dueAt && new Date(t.dueAt).getTime() < now;
+            return (
+              <li key={t.id} className="group flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/60">
+                <input
+                  type="checkbox"
+                  checked={done}
+                  onChange={(e) => update.mutate({ id: t.id, status: e.target.checked ? "done" : "todo" })}
+                  className="size-[18px] cursor-pointer rounded"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-sm ${done ? "text-muted line-through" : ""}`}>{t.title}</p>
+                  {t.dueAt && (
+                    <p className={`mt-0.5 text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}>
+                      {overdue ? "Overdue · " : ""}{fmt(t.dueAt)}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => remove.mutate(t.id)}
+                  aria-label="Delete task"
+                  className="rounded-md px-1.5 text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                >
+                  ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
