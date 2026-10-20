@@ -10,7 +10,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@doer/core": "workspace:*"
+    "@doer/core": "workspace:*",
+    "@fullcalendar/core": "^6.1.22",
+    "@fullcalendar/daygrid": "^6.1.22",
+    "@fullcalendar/interaction": "^6.1.22",
+    "@fullcalendar/list": "^6.1.22",
+    "@fullcalendar/react": "^6.1.22",
+    "@fullcalendar/rrule": "^6.1.22",
+    "@fullcalendar/timegrid": "^6.1.22",
+    "rrule": "^2.8.1"
   },
   "peerDependencies": {
     "react": "^19.0.0",

@@ -76,3 +76,11 @@ export const pushSubscription = pgTable("push_subscription", {
   auth: text("auth").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("push_endpoint_idx").on(t.endpoint)]);
+
+/** History of completed occurrences of recurring tasks (the task itself always points at the *next* one). */
+export const taskOccurrence = pgTable("task_occurrence", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  taskId: uuid("task_id").notNull().references(() => task.id, { onDelete: "cascade" }),
+  occurrenceAt: timestamp("occurrence_at", { withTimezone: true }).notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("task_occurrence_unique").on(t.taskId, t.occurrenceAt)]);

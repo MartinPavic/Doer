@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, gte, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { CreateTaskInput, ListTasksQuery, UpdateProfileInput, UpdateTaskInput } from "@doer/core/schemas";
+import { nextOccurrence } from "@doer/core/recurrence";
 import { baseFireAt, deferOutOfQuiet, quietHours } from "@doer/core/reminders";
 import type { Db } from "./db/client";
-import { profile, reminder, task } from "./db/schema";
+import { profile, reminder, task, taskOccurrence } from "./db/schema";
 
 const toDate = (v: string | null | undefined) => (v == null ? v : new Date(v));
 
@@ -117,6 +118,24 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
             return db.select().from(task).where(live).orderBy(desc(task.createdAt));
         }
       },
+      /** Tasks that belong on a calendar between `from` and `to`; recurring ones always (they expand client-side). */
+      async listRange(from: Date, to: Date) {
+        const starts = sql`coalesce(${task.startAt}, ${task.dueAt})`;
+        const ends = sql`coalesce(${task.dueAt}, ${task.startAt})`;
+        const rows = await db.select().from(task).where(and(
+          eq(task.profileId, p.id),
+          isNull(task.deletedAt),
+          or(isNotNull(task.rrule), and(sql`${starts} < ${to}`, sql`${ends} >= ${from}`)),
+        )).orderBy(asc(task.dueAt));
+        const recurring = rows.filter((r) => r.rrule).map((r) => r.id);
+        if (recurring.length === 0) return rows;
+        const done = await db.select().from(taskOccurrence).where(and(
+          inArray(taskOccurrence.taskId, recurring), gte(taskOccurrence.occurrenceAt, from), lt(taskOccurrence.occurrenceAt, to),
+        ));
+        return rows.map((r) =>
+          r.rrule ? { ...r, doneOccurrences: done.filter((o) => o.taskId === r.id).map((o) => o.occurrenceAt.toISOString()) } : r,
+        );
+      },
       async get(id: string) {
         const [t] = await db.select().from(task).where(mine(id));
         return t;
@@ -139,14 +158,27 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
         const { status, startAt, dueAt, reminderOffset, ...rest } = input;
         const before = await this.get(id);
         if (!before) return undefined;
+
+        // Completing a recurring task records this occurrence and moves the task on to the next one
+        // (it only becomes "done" for good when the rule has run out).
+        const completing = status === "done" && before.status !== "done" && !!before.rrule && !!before.dueAt;
+        const next = completing ? nextOccurrence({ dueAt: before.dueAt!, rrule: before.rrule!, tz: before.tz }) : null;
+        if (completing) {
+          await db.insert(taskOccurrence).values({ taskId: id, occurrenceAt: before.dueAt! }).onConflictDoNothing();
+        }
+
         const [t] = await db.update(task).set({
           ...rest,
           ...(startAt !== undefined && { startAt: toDate(startAt) }),
           ...(dueAt !== undefined && { dueAt: toDate(dueAt) }),
-          ...(status !== undefined && {
-            status,
-            completedAt: status === "done" ? new Date() : null,
-          }),
+          ...(next
+            ? {
+                dueAt: next,
+                startAt: before.startAt ? new Date(before.startAt.getTime() + (next.getTime() - before.dueAt!.getTime())) : before.startAt,
+                status: "todo" as const,
+                completedAt: null,
+              }
+            : status !== undefined && { status, completedAt: status === "done" ? new Date() : null }),
           updatedAt: new Date(),
         }).where(mine(id)).returning();
         if (!t) return undefined;

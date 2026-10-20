@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidRrule } from "./recurrence";
 import { quietHours } from "./reminders";
 
 export const profileKind = z.enum(["work", "private"]);
@@ -35,7 +36,7 @@ const taskFields = {
   dueAt: z.iso.datetime({ offset: true }).nullable(),
   allDay: z.boolean(),
   tz: z.string().max(64).nullable(),
-  rrule: z.string().max(500).nullable(),
+  rrule: z.string().max(500).refine(isValidRrule, "Invalid repeat rule").nullable(),
   parentId: z.uuid().nullable(),
   /** Minutes before due to remind. Omit on create for the profile default; null for no reminder. */
   reminderOffset: reminderOffset.nullable(),
@@ -80,3 +81,9 @@ export const pushSubscriptionInput = z.object({
   keys: z.object({ p256dh: z.string(), auth: z.string() }),
 });
 export type PushSubscriptionInput = z.infer<typeof pushSubscriptionInput>;
+
+export const calendarQuery = z.object({
+  from: z.iso.datetime({ offset: true }),
+  to: z.iso.datetime({ offset: true }),
+});
+export type CalendarQuery = z.infer<typeof calendarQuery>;

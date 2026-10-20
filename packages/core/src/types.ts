@@ -30,6 +30,8 @@ export interface Task {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Calendar responses only, for recurring tasks: occurrences already completed in the requested window. */
+  doneOccurrences?: string[];
 }
 
 export interface Reminder {

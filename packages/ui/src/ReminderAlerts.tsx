@@ -1,15 +1,17 @@
 import { useAlertActions, useDueReminders } from "@doer/core";
 
 /** Fired-but-unhandled reminders with one-tap Done / Snooze / Dismiss. Renders nothing when there are none. */
-export function ReminderAlerts() {
+export function ReminderAlerts({ limit, onMore }: { limit?: number; onMore?: () => void } = {}) {
   const { data: due = [] } = useDueReminders();
   const { snooze, done, dismiss } = useAlertActions();
   if (due.length === 0) return null;
+  const shown = limit ? due.slice(0, limit) : due;
+  const hidden = due.length - shown.length;
 
   const btn = "rounded-lg px-2.5 py-1 text-xs font-medium transition";
   return (
     <ul className="space-y-2">
-      {due.map((r) => (
+      {shown.map((r) => (
         <li key={r.id} className="rounded-2xl border border-accent/40 bg-accent/10 p-3">
           <div className="flex items-start gap-2">
             <span aria-hidden>🔔</span>
@@ -44,6 +46,13 @@ export function ReminderAlerts() {
           </div>
         </li>
       ))}
+      {hidden > 0 && (
+        <li>
+          <button onClick={onMore} className="w-full rounded-xl py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
+            +{hidden} more reminder{hidden > 1 ? "s" : ""}
+          </button>
+        </li>
+      )}
     </ul>
   );
 }

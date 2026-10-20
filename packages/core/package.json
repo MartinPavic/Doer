@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",
     "better-auth": "^1.7.11",
+    "rrule": "^2.8.1",
     "zod": "^4.0.0",
     "zustand": "^5.0.15"
   },
@@ -25,6 +26,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schemas": "./src/schemas.ts",
-    "./reminders": "./src/reminders.ts"
+    "./reminders": "./src/reminders.ts",
+    "./recurrence": "./src/recurrence.ts"
   }
 }

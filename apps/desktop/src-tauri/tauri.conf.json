@@ -13,9 +13,9 @@
     "windows": [
       {
         "title": "Doer",
-        "width": 520,
+        "width": 980,
         "height": 760,
-        "minWidth": 400,
+        "minWidth": 480,
         "minHeight": 520,
         "label": "main"
       },

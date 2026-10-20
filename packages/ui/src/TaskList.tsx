@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import {
-  useReminders, useTaskMutations, useTasks, useUiState,
+  describeRrule, useReminders, useTaskMutations, useTasks, useUiState,
   type Profile, type Reminder, type Task, type TaskView,
 } from "@doer/core";
 import { DateTimeField, DueDropdown, formatDue, type DateTimeValue } from "./DateTimePicker";
@@ -31,7 +31,7 @@ export function TaskRow({
   onToggle(done: boolean): void;
   onDelete(): void;
   /** When provided, the row offers a date picker to (re)schedule the task. */
-  onSetDue?(due: { iso: string; allDay: boolean } | null): void;
+  onSetDue?(due: { iso: string; allDay: boolean; rrule: string | null } | null): void;
 }) {
   const [editingDue, setEditingDue] = useState(false);
   const dueButton = useRef<HTMLButtonElement>(null);
@@ -47,9 +47,10 @@ export function TaskRow({
       />
       <div className="min-w-0 flex-1">
         <p className={`truncate text-sm ${done ? "text-muted line-through" : ""}`}>{t.title}</p>
-        {(t.dueAt || reminder) && (
+        {(t.dueAt || reminder || t.rrule) && (
           <p className={`mt-0.5 text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}>
             {t.dueAt && <>{overdue ? "Overdue · " : ""}{t.allDay ? formatDue({ date: new Date(t.dueAt), allDay: true }) : fmt(t.dueAt)}</>}
+            {t.rrule && <span title="Repeats"> · 🔁 {describeRrule(t.rrule)}</span>}
             {reminder && !reminder.firedAt && <span title="Reminder"> · 🔔 {fmtTime(reminder.fireAt)}</span>}
           </p>
         )}
@@ -69,6 +70,7 @@ export function TaskRow({
           anchor={dueButton}
           initial={t.dueAt}
           allDay={t.allDay}
+          rrule={t.rrule}
           onSave={onSetDue}
           onClose={() => setEditingDue(false)}
         />
@@ -92,7 +94,7 @@ export function TaskList({ profile }: { profile: Profile }) {
   const { data: reminders = [] } = useReminders(profile.id);
   const reminderByTask = new Map(reminders.map((r) => [r.taskId, r]));
   const [title, setTitle] = useState("");
-  const [due, setDue] = useState<DateTimeValue>({ date: null, allDay: false });
+  const [due, setDue] = useState<DateTimeValue>({ date: null, allDay: false, rrule: null });
   const [remind, setRemind] = useState<"default" | "none" | number>("default");
 
   function add(e: FormEvent) {
@@ -103,10 +105,10 @@ export function TaskList({ profile }: { profile: Profile }) {
     create.mutate(
       {
         title,
-        ...(dueAt && { dueAt, allDay, tz: localTz() }),
+        ...(dueAt && { dueAt, allDay, tz: localTz(), ...(due.rrule && { rrule: due.rrule }) }),
         ...(dueAt && remind !== "default" && { reminderOffset: remind === "none" ? null : remind }),
       },
-      { onSuccess: () => { setTitle(""); setDue({ date: null, allDay: false }); setRemind("default"); } },
+      { onSuccess: () => { setTitle(""); setDue({ date: null, allDay: false, rrule: null }); setRemind("default"); } },
     );
   }
 
@@ -172,7 +174,9 @@ export function TaskList({ profile }: { profile: Profile }) {
               reminder={reminderByTask.get(t.id)}
               onToggle={(done) => update.mutate({ id: t.id, status: done ? "done" : "todo" })}
               onDelete={() => remove.mutate(t.id)}
-              onSetDue={(due) => update.mutate({ id: t.id, dueAt: due?.iso ?? null, allDay: due?.allDay ?? false, tz: localTz() })}
+              onSetDue={(due) =>
+                update.mutate({ id: t.id, dueAt: due?.iso ?? null, allDay: due?.allDay ?? false, rrule: due?.rrule ?? null, tz: localTz() })
+              }
             />
           ))}
         </ul>

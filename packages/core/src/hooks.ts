@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDoer } from "./provider";
+import type { Task } from "./types";
 import type { CreateProfileInput, CreateTaskInput, TaskView, UpdateProfileInput, UpdateTaskInput } from "./schemas";
 
 export const useProfiles = () => {
@@ -163,5 +164,30 @@ export const useSetNotifyHere = () => {
       return save(true);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["device"] }),
+  });
+};
+
+/** Tasks for a calendar window. `enabled` lets the overlay skip profiles that are toggled off. */
+export const useCalendarTasks = (profileId: string | null, range: { from: string; to: string } | null, enabled = true) => {
+  const { api } = useDoer();
+  return useQuery({
+    queryKey: ["tasks", profileId, "calendar", range?.from, range?.to], // under "tasks" so task mutations refresh it
+    enabled: !!profileId && !!range && enabled,
+    queryFn: () => api.calendar.list(profileId!, range!.from, range!.to),
+    placeholderData: (prev) => prev, // keep the old month on screen while the next one loads
+  });
+};
+
+/** Calendar tasks of several profiles at once, each tagged with its profile id (for the overlay). */
+export const useCalendarOverlay = (profileIds: string[], range: { from: string; to: string } | null, enabled: boolean) => {
+  const { api } = useDoer();
+  return useQueries({
+    queries: profileIds.map((id) => ({
+      queryKey: ["tasks", id, "calendar", range?.from, range?.to],
+      enabled: enabled && !!range,
+      queryFn: () => api.calendar.list(id, range!.from, range!.to),
+      placeholderData: (prev: Task[] | undefined) => prev,
+    })),
+    combine: (results) => results.flatMap((r) => r.data ?? []),
   });
 };

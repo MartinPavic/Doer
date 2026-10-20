@@ -195,6 +195,21 @@ export function withOfflineSupport(api: ApiClient): ApiClient {
         }
       },
     },
+    calendar: {
+      async list(profileId, from, to) {
+        try {
+          return await api.calendar.list(profileId, from, to);
+        } catch (e) {
+          if (!isRetryable(e)) throw e;
+          // Offline: same selection as the server, from the cache.
+          return (await cachedTasks(profileId)).filter((t) => {
+            const start = t.startAt ?? t.dueAt;
+            const end = t.dueAt ?? t.startAt;
+            return !!t.rrule || (!!start && !!end && start < to && end >= from);
+          });
+        }
+      },
+    },
     tasks: {
       async list(profileId, q) {
         await flush();

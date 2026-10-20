@@ -57,6 +57,11 @@ export function createApiClient({ baseUrl, getToken }: ApiClientOptions) {
       remove: (profileId: string, id: string) =>
         req<void>(`/profiles/${profileId}/tasks/${id}`, { method: "DELETE" }),
     },
+    calendar: {
+      /** Scheduled tasks overlapping [from, to), plus every recurring task (the client expands those). */
+      list: (profileId: string, from: string, to: string) =>
+        req<Task[]>(`/profiles/${profileId}/calendar?${new URLSearchParams({ from, to })}`),
+    },
     reminders: {
       list: (profileId: string) => req<Reminder[]>(`/profiles/${profileId}/reminders`),
       snooze: (profileId: string, id: string, minutes: number) =>

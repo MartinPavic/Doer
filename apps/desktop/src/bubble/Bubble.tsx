@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   LogicalPosition,
   LogicalSize,
@@ -8,10 +8,12 @@ import {
 } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { useDueReminders, useTasks } from "@doer/core";
-import { QuickPanel, useActiveProfile } from "@doer/ui";
+import { QuickPanel, ReminderAlerts, useActiveProfile } from "@doer/ui";
 
 const SIZE = 56;
 const PANEL = { w: 360, h: 520 };
+const ALERT_W = 340;
+const FRESH_MS = 2 * 60_000; // only reminders this recent pop out on startup; older ones just keep the bubble pulsing
 const MARGIN = 8;
 const POS_KEY = "doer-bubble-pos";
 const SHORTCUT = "Alt+Space";
@@ -67,38 +69,71 @@ async function tween(from: Pt, to: Pt) {
   }
 }
 
+type Mode = "collapsed" | "alert" | "expanded";
+
 export function Bubble() {
-  const [expanded, setExpanded] = useState(false);
-  const expandedRef = useRef(false);
+  const [mode, setModeState] = useState<Mode>("collapsed");
+  const modeRef = useRef<Mode>("collapsed");
   const expandedAt = useRef(0);
   const anchor = useRef<Pt>({ x: 0, y: 0 }); // where the collapsed bubble rests
   const dragging = useRef(false);
   const press = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const seen = useRef<Set<string> | null>(null); // reminders already popped out this session
+  const { data: due = [], isSuccess } = useDueReminders();
 
-  const expand = useCallback(async () => {
-    if (expandedRef.current) return;
-    expandedRef.current = true;
-    // Grow from the bubble's corner nearest the screen centre so the panel stays on screen.
+  const setMode = (m: Mode) => {
+    modeRef.current = m;
+    setModeState(m);
+  };
+
+  /** Resize the window to w×h, growing from the bubble's corner nearest the screen centre so it stays on screen. */
+  const place = useCallback(async (w: number, h: number) => {
     const area = await workArea();
     const a = anchor.current;
     const right = a.x + SIZE / 2 > area.x + area.w / 2;
     const bottom = a.y + SIZE / 2 > area.y + area.h / 2;
-    const x = clamp(right ? a.x + SIZE - PANEL.w : a.x, area.x, area.x + area.w - PANEL.w);
-    const y = clamp(bottom ? a.y + SIZE - PANEL.h : a.y, area.y, area.y + area.h - PANEL.h);
-    await win.setSize(new LogicalSize(PANEL.w, PANEL.h));
+    const x = clamp(right ? a.x + SIZE - w : a.x, area.x, area.x + area.w - w);
+    const y = clamp(bottom ? a.y + SIZE - h : a.y, area.y, area.y + area.h - h);
+    await win.setSize(new LogicalSize(w, h));
     await moveTo({ x, y });
-    expandedAt.current = Date.now();
-    setExpanded(true);
-    await win.setFocus();
   }, []);
 
+  const expand = useCallback(async () => {
+    if (modeRef.current === "expanded") return;
+    setMode("expanded");
+    await place(PANEL.w, PANEL.h);
+    expandedAt.current = Date.now();
+    await win.setFocus();
+  }, [place]);
+
+  /** Reminder card next to the bubble. Doesn't take focus, so it never interrupts what you're typing elsewhere. */
+  const popOut = useCallback(async () => {
+    if (modeRef.current !== "collapsed") return; // panel already open: its alerts are shown there
+    setMode("alert");
+    await place(ALERT_W, 120); // AlertPopout then fits the height to its content
+  }, [place]);
+
+  const fitAlert = useCallback((h: number) => {
+    if (modeRef.current === "alert") void place(ALERT_W, h);
+  }, [place]);
+
   const collapse = useCallback(async () => {
-    if (!expandedRef.current) return;
-    expandedRef.current = false;
-    setExpanded(false);
+    if (modeRef.current === "collapsed") return;
+    setMode("collapsed");
     await win.setSize(new LogicalSize(SIZE, SIZE));
     await moveTo(anchor.current);
   }, []);
+
+  // Pop out for each newly due reminder; leave the pop-out once everything is handled.
+  useEffect(() => {
+    if (!isSuccess) return;
+    const key = (r: { id: string; fireAt: string }) => `${r.id}@${r.fireAt}`; // a snooze changes fireAt, so it pops again
+    seen.current ??= new Set(due.filter((r) => Date.now() - new Date(r.fireAt).getTime() >= FRESH_MS).map(key));
+    const fresh = due.filter((r) => !seen.current!.has(key(r)));
+    fresh.forEach((r) => seen.current!.add(key(r)));
+    if (fresh.length > 0) void popOut();
+    else if (due.length === 0 && modeRef.current === "alert") void collapse();
+  }, [due, isSuccess, popOut, collapse]);
 
   useEffect(() => {
     let settleTimer: ReturnType<typeof setTimeout>;
@@ -107,7 +142,7 @@ export function Bubble() {
     // After a native drag ends (no more move events), snap to the nearest side edge and remember the spot.
     const settle = async () => {
       dragging.current = false;
-      if (expandedRef.current) return;
+      if (modeRef.current !== "collapsed") return;
       const [area, p] = await Promise.all([workArea(), position()]);
       const toRight = p.x + SIZE / 2 > area.x + area.w / 2;
       const target = {
@@ -133,14 +168,15 @@ export function Bubble() {
       }),
       // Click outside (focus lost) collapses; ignore the blur that can accompany the expand itself.
       win.onFocusChanged(({ payload: focused }) => {
-        if (!focused && expandedRef.current && Date.now() - expandedAt.current > 300) void collapse();
+        if (!focused && modeRef.current === "expanded" && Date.now() - expandedAt.current > 300) void collapse();
       }),
     );
 
     void queueShortcut(() =>
       register(SHORTCUT, (e) => {
         if (e.state !== "Pressed") return;
-        void (expandedRef.current ? collapse() : expand());
+        // Collapsed or showing a reminder card: open the panel. Panel open: close it.
+        void (modeRef.current === "expanded" ? collapse() : expand());
       }),
     );
 
@@ -155,12 +191,16 @@ export function Bubble() {
     };
   }, [expand, collapse]);
 
-  if (expanded) {
+  if (mode === "expanded") {
     return (
       <div className="h-screen p-2">
         <QuickPanel onClose={() => void collapse()} />
       </div>
     );
+  }
+
+  if (mode === "alert") {
+    return <AlertPopout onFit={fitAlert} onOpenPanel={() => void expand()} onClose={() => void collapse()} />;
   }
 
   return (
@@ -186,6 +226,37 @@ export function Bubble() {
     >
       <BubbleFace />
     </button>
+  );
+}
+
+function AlertPopout({ onFit, onOpenPanel, onClose }: { onFit(h: number): void; onOpenPanel(): void; onClose(): void }) {
+  const card = useRef<HTMLDivElement>(null);
+  // The window is sized to its content, so a second reminder arriving (or a card being handled) re-fits it.
+  useLayoutEffect(() => {
+    const el = card.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => onFit(Math.ceil(el.getBoundingClientRect().height) + 16));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onFit]);
+
+  return (
+    <div className="p-2">
+      <div ref={card} className="space-y-2 rounded-3xl border border-line bg-surface p-3 shadow-2xl">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">Reminder</span>
+          <div className="flex items-center gap-1">
+            <button onClick={onOpenPanel} className="rounded-lg px-2 py-0.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
+              Open panel
+            </button>
+            <button onClick={onClose} aria-label="Hide" className="rounded-lg px-2 py-0.5 text-muted hover:bg-surface-2 hover:text-fg">
+              ✕
+            </button>
+          </div>
+        </div>
+        <ReminderAlerts limit={3} onMore={onOpenPanel} />
+      </div>
+    </div>
   );
 }
 

@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, asc, count, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
-  createProfileInput, createTaskInput, deviceInput, listTasksQuery, pushSubscriptionInput, snoozeInput, updateProfileInput, updateTaskInput,
+  calendarQuery, createProfileInput, createTaskInput, deviceInput, listTasksQuery, pushSubscriptionInput, snoozeInput, updateProfileInput, updateTaskInput,
 } from "@doer/core/schemas";
 import { allowedOrigins, createAuth, type AuthEnv } from "./auth";
 import { getDb, type Db } from "./db/client";
@@ -92,6 +92,13 @@ api.patch("/profiles/:profileId/tasks/:id", zValidator("json", updateTaskInput),
 api.delete("/profiles/:profileId/tasks/:id", async (c) => {
   const s = await scoped(c);
   return s && (await s.tasks.remove(c.req.param("id"))) ? c.body(null, 204) : notFound(c);
+});
+
+// --- calendar ---------------------------------------------------------------
+api.get("/profiles/:profileId/calendar", zValidator("query", calendarQuery), async (c) => {
+  const { from, to } = c.req.valid("query");
+  const s = await scoped(c);
+  return s ? c.json(await s.tasks.listRange(new Date(from), new Date(to))) : notFound(c);
 });
 
 // --- reminders --------------------------------------------------------------

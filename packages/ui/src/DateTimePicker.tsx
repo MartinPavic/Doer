@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { REPEAT_PRESETS, describeRrule } from "@doer/core";
 import { Popover } from "./Popover";
 
 export interface DateTimeValue {
   /** Local date + time. For all-day values only the date part matters (time is 00:00). */
   date: Date | null;
   allDay: boolean;
+  /** RRULE string (see REPEAT_PRESETS) or null for a one-off task. */
+  rrule: string | null;
 }
 
 const DAY = 86_400_000;
@@ -29,7 +32,7 @@ export function parseTime(input: string): { h: number; m: number } | null {
 }
 
 /** "Today 14:30", "Tomorrow", "Thu 22 Oct, 09:00". */
-export function formatDue({ date, allDay }: DateTimeValue): string {
+export function formatDue({ date, allDay }: Pick<DateTimeValue, "date" | "allDay">): string {
   if (!date) return "";
   const today = startOfDay(new Date());
   const diff = Math.round((startOfDay(date).getTime() - today.getTime()) / DAY);
@@ -60,7 +63,7 @@ const chipOn = "rounded-full border border-accent bg-accent/10 px-2.5 py-0.5 tex
 
 /** Calendar + time body. Controlled; used inline (row editor) or inside a popover (add form). */
 export function DateTimePanel({ value, onChange }: { value: DateTimeValue; onChange(v: DateTimeValue): void }) {
-  const { date, allDay } = value;
+  const { date, allDay, rrule } = value;
   const [view, setView] = useState(() => startOfDay(date ?? new Date()));
   const [timeText, setTimeText] = useState(date && !allDay ? hhmm(date) : "");
   const today = new Date();
@@ -70,11 +73,11 @@ export function DateTimePanel({ value, onChange }: { value: DateTimeValue; onCha
 
   const pickDay = (d: Date) => {
     const t = date && !allDay ? date : defaultTimeFor(d);
-    onChange({ date: allDay ? startOfDay(d) : withTime(d, t.getHours(), t.getMinutes()), allDay });
+    onChange({ date: allDay ? startOfDay(d) : withTime(d, t.getHours(), t.getMinutes()), allDay, rrule });
     setView(startOfDay(d));
   };
   const setTime = (h: number, m: number) =>
-    onChange({ date: withTime(date ?? today, h, m), allDay: false });
+    onChange({ date: withTime(date ?? today, h, m), allDay: false, rrule });
   const commitTime = () => {
     const t = parseTime(timeText);
     if (t) setTime(t.h, t.m);
@@ -150,7 +153,7 @@ export function DateTimePanel({ value, onChange }: { value: DateTimeValue; onCha
             type="checkbox"
             checked={allDay}
             onChange={(e) =>
-              onChange({ date: e.target.checked ? startOfDay(date ?? today) : defaultTimeFor(date ?? today), allDay: e.target.checked })
+              onChange({ date: e.target.checked ? startOfDay(date ?? today) : defaultTimeFor(date ?? today), allDay: e.target.checked, rrule })
             }
           />
         </label>
@@ -178,6 +181,20 @@ export function DateTimePanel({ value, onChange }: { value: DateTimeValue; onCha
               ))}
             </div>
           </div>
+        )}
+        {date && (
+          <label className="flex items-center justify-between">
+            <span className="text-muted">Repeat</span>
+            <select
+              value={rrule ?? ""}
+              onChange={(e) => onChange({ ...value, rrule: e.target.value || null })}
+              aria-label="Repeat"
+              className="rounded-lg border border-line bg-surface-2 px-2 py-1 text-fg outline-none focus:border-accent"
+            >
+              {REPEAT_PRESETS.map((p) => <option key={p.label} value={p.rrule ?? ""}>{p.label}</option>)}
+              {rrule && !REPEAT_PRESETS.some((p) => p.rrule === rrule) && <option value={rrule}>{describeRrule(rrule)}</option>}
+            </select>
+          </label>
         )}
       </div>
     </div>
@@ -208,12 +225,12 @@ export function DateTimeField({
         }`}
       >
         <span aria-hidden>📅</span>
-        {value.date ? formatDue(value) : placeholder}
+        {value.date ? `${formatDue(value)}${value.rrule ? " · 🔁" : ""}` : placeholder}
         {value.date && (
           <span
             role="button"
             aria-label="Clear due date"
-            onClick={(e) => { e.stopPropagation(); onChange({ date: null, allDay: false }); }}
+            onClick={(e) => { e.stopPropagation(); onChange({ date: null, allDay: false, rrule: null }); }}
             className="ml-1 rounded-full px-1 text-xs hover:bg-accent/20"
           >
             ✕
@@ -239,16 +256,18 @@ export function DueDropdown({
   anchor,
   initial,
   allDay,
+  rrule,
   onSave,
   onClose,
 }: {
   anchor: React.RefObject<HTMLElement | null>;
   initial: string | null;
   allDay: boolean;
-  onSave(due: { iso: string; allDay: boolean } | null): void;
+  rrule: string | null;
+  onSave(due: { iso: string; allDay: boolean; rrule: string | null } | null): void;
   onClose(): void;
 }) {
-  const [draft, setDraft] = useState<DateTimeValue>({ date: initial ? new Date(initial) : null, allDay });
+  const [draft, setDraft] = useState<DateTimeValue>({ date: initial ? new Date(initial) : null, allDay, rrule });
   const btn = "rounded-md px-2.5 py-1 text-xs font-medium transition";
   return (
     <Popover anchor={anchor} onClose={onClose}>
@@ -261,7 +280,7 @@ export function DueDropdown({
           <button onClick={onClose} className={`${btn} text-muted hover:bg-surface-2`}>Cancel</button>
           <button
             disabled={!draft.date}
-            onClick={() => { if (draft.date) { onSave({ iso: draft.date.toISOString(), allDay: draft.allDay }); onClose(); } }}
+            onClick={() => { if (draft.date) { onSave({ iso: draft.date.toISOString(), allDay: draft.allDay, rrule: draft.rrule }); onClose(); } }}
             className={`${btn} bg-accent text-accent-fg disabled:opacity-50`}
           >
             Save

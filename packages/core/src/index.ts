@@ -6,3 +6,4 @@ export * from "./provider";
 export * from "./hooks";
 export * from "./ui-state";
 export * from "./reminders";
+export * from "./recurrence";

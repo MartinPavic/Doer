@@ -1,0 +1,143 @@
+import { useState, type ReactNode } from "react";
+import { describeRrule, type Profile, type Task } from "@doer/core";
+import { DateTimeField, formatDue, type DateTimeValue } from "./DateTimePicker";
+
+function Modal({ title, onClose, children }: { title: ReactNode; onClose(): void; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        className="w-full max-w-sm space-y-4 rounded-3xl border border-line bg-surface p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.key === "Escape" && onClose()}
+      >
+        <header className="flex items-start justify-between gap-3">
+          <h2 className="min-w-0 text-base font-semibold">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="rounded-lg px-2 py-0.5 text-muted hover:bg-surface-2">✕</button>
+        </header>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export interface NewTaskDraft {
+  title: string;
+  due: DateTimeValue;
+  /** Set when the user dragged a time range, so the task spans it. */
+  end: Date | null;
+}
+
+export function NewTaskDialog({
+  profile,
+  initial,
+  onCreate,
+  onClose,
+}: {
+  profile: Profile;
+  initial: { due: DateTimeValue; end: Date | null };
+  onCreate(draft: NewTaskDraft): void;
+  onClose(): void;
+}) {
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState(initial.due);
+  return (
+    <Modal
+      title={<span className="flex items-center gap-2"><span className="size-2.5 rounded-full" style={{ background: profile.color }} />New {profile.name.toLowerCase()} task</span>}
+      onClose={onClose}
+    >
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (title.trim()) onCreate({ title: title.trim(), due, end: initial.end });
+        }}
+      >
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="What needs doing?"
+          className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-accent/20"
+        />
+        <DateTimeField value={due} onChange={setDue} />
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm text-muted hover:bg-surface-2">Cancel</button>
+          <button
+            disabled={!title.trim()}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
+          >
+            Add task
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export function TaskDetailDialog({
+  task,
+  occurrence,
+  pastDone,
+  profile,
+  readOnly,
+  onToggleDone,
+  onDelete,
+  onClose,
+}: {
+  task: Task;
+  /** The clicked occurrence of a recurring task (null for one-off tasks). */
+  occurrence: Date | null;
+  /** The clicked occurrence is a completed one from history. */
+  pastDone: boolean;
+  profile: Profile;
+  /** Overlay tasks from the other profile can be looked at, not changed. */
+  readOnly: boolean;
+  onToggleDone(done: boolean): void;
+  onDelete(): void;
+  onClose(): void;
+}) {
+  const recurring = !!task.rrule;
+  // A recurring task always points at its next occurrence, so only that one can be completed.
+  const isCurrent = !!occurrence && !!task.dueAt && Math.abs(occurrence.getTime() - new Date(task.dueAt).getTime()) < 60_000;
+  const done = recurring ? pastDone : task.status === "done";
+  const canToggle = !readOnly && (!recurring || (isCurrent && !pastDone));
+  const shown = recurring ? occurrence : task.dueAt ? new Date(task.dueAt) : null;
+  const when = shown ? formatDue({ date: shown, allDay: task.allDay }) : "Unscheduled";
+  return (
+    <Modal
+      title={<span className={done ? "text-muted line-through" : ""}>{task.title}</span>}
+      onClose={onClose}
+    >
+      <div className="space-y-1 text-sm text-muted">
+        <p className="flex items-center gap-2">
+          <span className="size-2.5 rounded-full" style={{ background: profile.color }} />
+          {profile.name}
+        </p>
+        <p>📅 {when}</p>
+        {recurring && <p>🔁 {describeRrule(task.rrule)}</p>}
+        {task.notes && <p className="whitespace-pre-wrap text-fg">{task.notes}</p>}
+      </div>
+      {readOnly ? (
+        <p className="text-xs text-muted">Switch to the {profile.name} profile to edit this task.</p>
+      ) : (
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={done}
+              disabled={!canToggle}
+              onChange={(e) => onToggleDone(e.target.checked)}
+              className="size-[18px]"
+            />
+            Done
+          </label>
+          <button onClick={onDelete} className="rounded-lg px-3 py-1.5 text-sm text-danger hover:bg-danger/10">Delete</button>
+        </div>
+      )}
+      {!readOnly && recurring && !canToggle && !pastDone && (
+        <p className="text-xs text-muted">Complete the next occurrence first; later ones unlock as you go.</p>
+      )}
+    </Modal>
+  );
+}
