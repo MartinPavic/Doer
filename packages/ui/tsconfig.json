@@ -1,0 +1,1 @@
+{ "extends": "@doer/config/tsconfig.base.json", "include": ["src"] }

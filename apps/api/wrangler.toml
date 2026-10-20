@@ -1,0 +1,6 @@
+name = "doer-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[triggers]
+crons = ["* * * * *"] # reminders, token refresh, watch renewal (Phase 4+)

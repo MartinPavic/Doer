@@ -1,0 +1,17 @@
+{
+  "name": "doer",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "turbo run dev --filter=@doer/web --filter=@doer/api",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "dev:desktop": "pnpm --filter @doer/desktop tauri dev"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.9",
+    "typescript": "~6.0.3"
+  }
+}

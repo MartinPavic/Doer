@@ -1,0 +1,5 @@
+{
+  "extends": "@doer/config/tsconfig.base.json",
+  "compilerOptions": { "types": ["@cloudflare/workers-types"], "lib": ["ES2023"] },
+  "include": ["src", "drizzle.config.ts"]
+}
