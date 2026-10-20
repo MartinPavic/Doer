@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useTaskMutations, useTasks, useUiState, type Profile, type TaskView } from "@doer/core";
+import { useTaskMutations, useTasks, useUiState, type Profile, type Task, type TaskView } from "@doer/core";
 
 const VIEWS: { id: TaskView; label: string }[] = [
   { id: "today", label: "Today" },
@@ -9,6 +9,44 @@ const VIEWS: { id: TaskView; label: string }[] = [
 ];
 
 const fmt = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+
+export function TaskRow({
+  task: t,
+  onToggle,
+  onDelete,
+}: {
+  task: Task;
+  onToggle(done: boolean): void;
+  onDelete(): void;
+}) {
+  const done = t.status === "done";
+  const overdue = !done && t.dueAt && new Date(t.dueAt).getTime() < Date.now();
+  return (
+    <li className="group flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/60">
+      <input
+        type="checkbox"
+        checked={done}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="size-[18px] cursor-pointer rounded"
+      />
+      <div className="min-w-0 flex-1">
+        <p className={`truncate text-sm ${done ? "text-muted line-through" : ""}`}>{t.title}</p>
+        {t.dueAt && (
+          <p className={`mt-0.5 text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}>
+            {overdue ? "Overdue · " : ""}{fmt(t.dueAt)}
+          </p>
+        )}
+      </div>
+      <button
+        onClick={onDelete}
+        aria-label="Delete task"
+        className="rounded-md px-1.5 text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+      >
+        ✕
+      </button>
+    </li>
+  );
+}
 
 export function TaskList({ profile }: { profile: Profile }) {
   const view = useUiState((s) => s.view);
@@ -23,7 +61,6 @@ export function TaskList({ profile }: { profile: Profile }) {
     create.mutate({ title }, { onSuccess: () => setTitle("") });
   }
 
-  const now = Date.now();
   return (
     <div className="space-y-4">
       <nav className="flex gap-1">
@@ -60,35 +97,14 @@ export function TaskList({ profile }: { profile: Profile }) {
         </div>
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-          {tasks.map((t) => {
-            const done = t.status === "done";
-            const overdue = !done && t.dueAt && new Date(t.dueAt).getTime() < now;
-            return (
-              <li key={t.id} className="group flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/60">
-                <input
-                  type="checkbox"
-                  checked={done}
-                  onChange={(e) => update.mutate({ id: t.id, status: e.target.checked ? "done" : "todo" })}
-                  className="size-[18px] cursor-pointer rounded"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className={`truncate text-sm ${done ? "text-muted line-through" : ""}`}>{t.title}</p>
-                  {t.dueAt && (
-                    <p className={`mt-0.5 text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}>
-                      {overdue ? "Overdue · " : ""}{fmt(t.dueAt)}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => remove.mutate(t.id)}
-                  aria-label="Delete task"
-                  className="rounded-md px-1.5 text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
-                >
-                  ✕
-                </button>
-              </li>
-            );
-          })}
+          {tasks.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              onToggle={(done) => update.mutate({ id: t.id, status: done ? "done" : "todo" })}
+              onDelete={() => remove.mutate(t.id)}
+            />
+          ))}
         </ul>
       )}
     </div>

@@ -16,12 +16,34 @@
         "width": 520,
         "height": 760,
         "minWidth": 400,
-        "minHeight": 520
+        "minHeight": 520,
+        "label": "main"
+      },
+      {
+        "label": "bubble",
+        "title": "Doer Bubble",
+        "url": "bubble.html",
+        "width": 56,
+        "height": 56,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "visibleOnAllWorkspaces": true,
+        "focus": false,
+        "maximizable": false,
+        "minimizable": false,
+        "x": 0,
+        "y": 0,
+        "visible": false
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

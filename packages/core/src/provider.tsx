@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createAuthClient } from "better-auth/react";
 import { createApiClient, type ApiClient, type ApiClientOptions } from "./api-client";
@@ -51,6 +51,18 @@ export function DoerProvider({
     () => new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: true, refetchInterval: 30_000 } } }),
     [],
   );
+  // Other windows (desktop bubble <-> main) announce writes; refetch when they do, and announce ours.
+  useEffect(() => {
+    const unsubscribe = platform.subscribe?.("data:changed", () => void queryClient.invalidateQueries());
+    const stop = queryClient.getMutationCache().subscribe((e) => {
+      if (e.type === "updated" && e.action.type === "success") void platform.broadcast?.("data:changed");
+    });
+    return () => {
+      stop();
+      void unsubscribe?.then((off) => off());
+    };
+  }, [platform, queryClient]);
+
   return (
     <Ctx.Provider value={value}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
