@@ -254,6 +254,10 @@ export function CalendarView({ profile }: { profile: Profile }) {
           profile={selectedProfile}
           readOnly={selected.task.profileId !== profile.id}
           canMirror={accounts.some((a) => a.calendars.some((cal) => cal.isWriteTarget && cal.writable))}
+          onSetNotes={(notes) => {
+            update.mutate({ id: selected.task.id, notes });
+            setSelected({ ...selected, task: { ...selected.task, notes } });
+          }}
           onSetMirror={(mirror) => {
             update.mutate({ id: selected.task.id, mirror });
             setSelected({ ...selected, task: { ...selected.task, mirror } });

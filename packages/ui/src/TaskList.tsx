@@ -4,6 +4,7 @@ import {
   type Profile, type Reminder, type Task, type TaskView,
 } from "@doer/core";
 import { DateTimeField, DueDropdown, formatDue, type DateTimeValue } from "./DateTimePicker";
+import { NotesDropdown } from "./NotesDropdown";
 import { REMINDER_OFFSETS } from "./reminder-options";
 
 const VIEWS: { id: TaskView; label: string }[] = [
@@ -25,6 +26,7 @@ export function TaskRow({
   onToggle,
   onDelete,
   onSetDue,
+  onSetNotes,
   dragProps,
   dragging,
   dropTarget,
@@ -35,13 +37,18 @@ export function TaskRow({
   onDelete(): void;
   /** When provided, the row offers a date picker to (re)schedule the task. */
   onSetDue?(due: { iso: string; allDay: boolean; rrule: string | null } | null): void;
+  /** When provided, the row shows a notes preview and lets the user edit the notes. */
+  onSetNotes?(notes: string | null): void;
   /** When provided, the row can be dragged to reorder (the list owns the drag state). */
   dragProps?: HTMLAttributes<HTMLLIElement>;
   dragging?: boolean;
   dropTarget?: boolean;
 }) {
   const [editingDue, setEditingDue] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
   const dueButton = useRef<HTMLButtonElement>(null);
+  const notesButton = useRef<HTMLButtonElement>(null);
+  const firstNoteLine = t.notes?.split("\n").find((l) => l.trim())?.trim();
   const done = t.status === "done";
   const overdue = !done && t.dueAt && new Date(t.dueAt).getTime() < Date.now();
   return (
@@ -57,6 +64,11 @@ export function TaskRow({
       />
       <div className="min-w-0 flex-1">
         <p className={`truncate text-sm ${done ? "text-muted line-through" : ""}`}>{t.title}</p>
+        {firstNoteLine && (
+          <p className="mt-0.5 truncate text-xs italic text-muted" title={t.notes ?? undefined}>
+            📝 {firstNoteLine}
+          </p>
+        )}
         {(t.dueAt || reminder || t.rrule) && (
           <p className={`mt-0.5 text-xs ${overdue ? "font-medium text-danger" : "text-muted"}`}>
             {t.dueAt && <>{overdue ? "Overdue · " : ""}{t.allDay ? formatDue({ date: new Date(t.dueAt), allDay: true }) : fmt(t.dueAt)}</>}
@@ -65,6 +77,16 @@ export function TaskRow({
           </p>
         )}
       </div>
+      {onSetNotes && (
+        <button
+          ref={notesButton}
+          onClick={() => setEditingNotes((v) => !v)}
+          aria-label={t.notes ? "Edit notes" : "Add notes"}
+          className={`rounded-md px-1.5 text-muted transition hover:bg-surface-2 hover:text-fg group-hover:opacity-100 ${editingNotes || t.notes ? "opacity-100" : "opacity-0"}`}
+        >
+          📝
+        </button>
+      )}
       {onSetDue && !done && (
         <button
           ref={dueButton}
@@ -74,6 +96,9 @@ export function TaskRow({
         >
           📅
         </button>
+      )}
+      {editingNotes && onSetNotes && (
+        <NotesDropdown anchor={notesButton} initial={t.notes} onSave={onSetNotes} onClose={() => setEditingNotes(false)} />
       )}
       {editingDue && onSetDue && (
         <DueDropdown
@@ -211,6 +236,7 @@ export function TaskList({ profile }: { profile: Profile }) {
               reminder={reminderByTask.get(t.id)}
               onToggle={(done) => update.mutate({ id: t.id, status: done ? "done" : "todo" })}
               onDelete={() => remove.mutate(t.id)}
+              onSetNotes={(notes) => update.mutate({ id: t.id, notes })}
               onSetDue={(due) =>
                 update.mutate({ id: t.id, dueAt: due?.iso ?? null, allDay: due?.allDay ?? false, rrule: due?.rrule ?? null, tz: localTz() })
               }

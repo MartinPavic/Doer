@@ -75,6 +75,38 @@ export function NewTaskDialog({
   );
 }
 
+/** Always-visible notes box for the task dialog; Save appears once there's something to save. */
+function NotesField({ notes, onSave }: { notes: string | null; onSave(notes: string | null): void }) {
+  const [draft, setDraft] = useState(notes ?? "");
+  const dirty = draft.trim() !== (notes ?? "").trim();
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium uppercase tracking-wide text-muted" htmlFor="task-notes">Notes</label>
+      <textarea
+        id="task-notes"
+        value={draft}
+        maxLength={20_000}
+        rows={4}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && dirty) {
+            e.preventDefault();
+            onSave(draft.trim() || null);
+          }
+        }}
+        placeholder="Add notes: details, links, what “done” looks like…"
+        className="w-full resize-y rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-4 focus:ring-accent/20"
+      />
+      {dirty && (
+        <div className="flex justify-end gap-1">
+          <button onClick={() => setDraft(notes ?? "")} className="rounded-md px-2.5 py-1 text-xs text-muted hover:bg-surface-2">Revert</button>
+          <button onClick={() => onSave(draft.trim() || null)} className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg">Save notes</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TaskDetailDialog({
   task,
   occurrence,
@@ -84,6 +116,7 @@ export function TaskDetailDialog({
   canMirror,
   onToggleDone,
   onSetMirror,
+  onSetNotes,
   onDelete,
   onClose,
 }: {
@@ -99,6 +132,7 @@ export function TaskDetailDialog({
   canMirror: boolean;
   onToggleDone(done: boolean): void;
   onSetMirror(mirror: boolean | null): void;
+  onSetNotes(notes: string | null): void;
   onDelete(): void;
   onClose(): void;
 }) {
@@ -121,8 +155,9 @@ export function TaskDetailDialog({
         </p>
         <p>📅 {when}</p>
         {recurring && <p>🔁 {describeRrule(task.rrule)}</p>}
-        {task.notes && <p className="whitespace-pre-wrap text-fg">{task.notes}</p>}
+        {readOnly && task.notes && <p className="whitespace-pre-wrap text-fg">{task.notes}</p>}
       </div>
+      {!readOnly && <NotesField key={task.id} notes={task.notes} onSave={onSetNotes} />}
       {readOnly ? (
         <p className="text-xs text-muted">Switch to the {profile.name} profile to edit this task.</p>
       ) : (
