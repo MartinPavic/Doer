@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type HTMLAttributes } from "react";
 import {
   describeRrule, useReminders, useTaskMutations, useTasks, useUiState,
   type Profile, type Reminder, type Task, type TaskView,
@@ -25,8 +25,9 @@ export function TaskRow({
   onToggle,
   onDelete,
   onSetDue,
-  onMoveUp,
-  onMoveDown,
+  dragProps,
+  dragging,
+  dropTarget,
 }: {
   task: Task;
   reminder?: Reminder;
@@ -34,16 +35,20 @@ export function TaskRow({
   onDelete(): void;
   /** When provided, the row offers a date picker to (re)schedule the task. */
   onSetDue?(due: { iso: string; allDay: boolean; rrule: string | null } | null): void;
-  /** When provided, the row shows move up/down buttons (omitted for the first/last row). */
-  onMoveUp?(): void;
-  onMoveDown?(): void;
+  /** When provided, the row can be dragged to reorder (the list owns the drag state). */
+  dragProps?: HTMLAttributes<HTMLLIElement>;
+  dragging?: boolean;
+  dropTarget?: boolean;
 }) {
   const [editingDue, setEditingDue] = useState(false);
   const dueButton = useRef<HTMLButtonElement>(null);
   const done = t.status === "done";
   const overdue = !done && t.dueAt && new Date(t.dueAt).getTime() < Date.now();
   return (
-    <li className="group flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/60">
+    <li
+      {...dragProps}
+      className={`group flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/60 ${dragProps ? "cursor-grab" : ""} ${dragging ? "opacity-40" : ""} ${dropTarget ? "bg-accent/15" : ""}`}
+    >
       <input
         type="checkbox"
         checked={done}
@@ -60,26 +65,6 @@ export function TaskRow({
           </p>
         )}
       </div>
-      {(onMoveUp || onMoveDown) && (
-        <div className="flex flex-col opacity-0 transition group-hover:opacity-100">
-          <button
-            onClick={onMoveUp}
-            disabled={!onMoveUp}
-            aria-label="Move up"
-            className="rounded px-1 text-[10px] leading-3 text-muted hover:bg-surface-2 hover:text-fg disabled:invisible"
-          >
-            ▲
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={!onMoveDown}
-            aria-label="Move down"
-            className="rounded px-1 text-[10px] leading-3 text-muted hover:bg-surface-2 hover:text-fg disabled:invisible"
-          >
-            ▼
-          </button>
-        </div>
-      )}
       {onSetDue && !done && (
         <button
           ref={dueButton}
@@ -122,11 +107,19 @@ export function TaskList({ profile }: { profile: Profile }) {
   const [due, setDue] = useState<DateTimeValue>({ date: null, allDay: false, rrule: null });
   const [remind, setRemind] = useState<"default" | "none" | number>("default");
 
-  /** Moves a task one slot and renumbers only the rows whose position changed. */
-  function move(index: number, by: -1 | 1) {
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const canReorder = view !== "done";
+
+  /** Drops the dragged task into the target's slot and renumbers only the rows whose position changed. */
+  function drop(targetId: string) {
+    const from = tasks.findIndex((t) => t.id === dragId);
+    const to = tasks.findIndex((t) => t.id === targetId);
+    setDragId(null);
+    setOverId(null);
+    if (from < 0 || to < 0 || from === to) return;
     const order = tasks.slice();
-    const [t] = order.splice(index, 1);
-    order.splice(index + by, 0, t!);
+    order.splice(to, 0, order.splice(from, 1)[0]!);
     order.forEach((o, i) => {
       if (o.sortOrder !== i + 1) update.mutate({ id: o.id, sortOrder: i + 1 });
     });
@@ -202,12 +195,19 @@ export function TaskList({ profile }: { profile: Profile }) {
         </div>
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-          {tasks.map((t, i) => (
+          {tasks.map((t) => (
             <TaskRow
               key={t.id}
               task={t}
-              onMoveUp={view !== "done" && i > 0 ? () => move(i, -1) : undefined}
-              onMoveDown={view !== "done" && i < tasks.length - 1 ? () => move(i, 1) : undefined}
+              dragging={dragId === t.id}
+              dropTarget={!!dragId && overId === t.id && dragId !== t.id}
+              dragProps={canReorder ? {
+                draggable: true,
+                onDragStart: (e) => { e.dataTransfer.effectAllowed = "move"; setDragId(t.id); },
+                onDragOver: (e) => { if (dragId) { e.preventDefault(); setOverId(t.id); } },
+                onDrop: (e) => { e.preventDefault(); drop(t.id); },
+                onDragEnd: () => { setDragId(null); setOverId(null); },
+              } : undefined}
               reminder={reminderByTask.get(t.id)}
               onToggle={(done) => update.mutate({ id: t.id, status: done ? "done" : "todo" })}
               onDelete={() => remove.mutate(t.id)}
