@@ -26,6 +26,8 @@ export const task = pgTable("task", {
   notes: text("notes"),
   status: text("status", { enum: ["todo", "done", "cancelled"] }).notNull().default("todo"),
   priority: integer("priority").notNull().default(0),
+  /** Manual position within a list (ascending); 0 = never moved, so new tasks sit on top. */
+  sortOrder: integer("sort_order").notNull().default(0),
   startAt: timestamp("start_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
   allDay: boolean("all_day").notNull().default(false),

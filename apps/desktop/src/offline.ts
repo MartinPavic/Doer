@@ -56,7 +56,7 @@ async function cachedTasks(profileId: string): Promise<Task[]> {
 }
 
 const byDue = (a: Task, b: Task) =>
-  (a.dueAt ?? "￿").localeCompare(b.dueAt ?? "￿") || b.priority - a.priority;
+  a.sortOrder - b.sortOrder || (a.dueAt ?? "￿").localeCompare(b.dueAt ?? "￿") || b.priority - a.priority;
 
 /** Mirrors the server's view filters so offline lists look the same as online ones. */
 async function localList(profileId: string, q: Partial<ListTasksQuery>): Promise<Task[]> {
@@ -72,7 +72,7 @@ async function localList(profileId: string, q: Partial<ListTasksQuery>): Promise
         .filter((t) => t.status === "done" && (!dayStart || (t.completedAt ?? "") >= dayStart))
         .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
     default:
-      return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return all.sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt.localeCompare(a.createdAt));
   }
 }
 
@@ -89,7 +89,7 @@ async function applyLocal(op: Op): Promise<Task | undefined> {
     const i = op.input;
     const t: Task = {
       id: i.id, profileId: op.profileId, parentId: i.parentId ?? null, title: i.title, notes: i.notes ?? null,
-      status: "todo", priority: i.priority ?? 0, startAt: i.startAt ?? null, dueAt: i.dueAt ?? null,
+      status: "todo", priority: i.priority ?? 0, sortOrder: i.sortOrder ?? 0, startAt: i.startAt ?? null, dueAt: i.dueAt ?? null,
       allDay: i.allDay ?? false, tz: i.tz ?? null, rrule: i.rrule ?? null, completedAt: null, mirror: i.mirror ?? null,
       createdAt: now, updatedAt: now,
     };

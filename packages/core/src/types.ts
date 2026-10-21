@@ -23,6 +23,7 @@ export interface Task {
   notes: string | null;
   status: TaskStatus;
   priority: number;
+  sortOrder: number;
   startAt: string | null;
   dueAt: string | null;
   allDay: boolean;

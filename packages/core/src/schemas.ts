@@ -34,6 +34,7 @@ const taskFields = {
   title: z.string().trim().min(1).max(500),
   notes: z.string().max(20_000).nullable(),
   priority: z.number().int().min(0).max(3),
+  sortOrder: z.number().int().min(0).max(1_000_000),
   startAt: z.iso.datetime({ offset: true }).nullable(),
   dueAt: z.iso.datetime({ offset: true }).nullable(),
   allDay: z.boolean(),

@@ -107,17 +107,17 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
           case "today": // overdue + due today + undated (quick-added tasks have no due date)
             return db.select().from(task)
               .where(and(live, eq(task.status, "todo"), dayEnd ? or(isNull(task.dueAt), lt(task.dueAt, dayEnd)) : undefined))
-              .orderBy(asc(task.dueAt), desc(task.priority), desc(task.createdAt));
+              .orderBy(asc(task.sortOrder), asc(task.dueAt), desc(task.priority), desc(task.createdAt));
           case "upcoming":
             return db.select().from(task)
               .where(and(live, eq(task.status, "todo"), dayEnd ? gte(task.dueAt, dayEnd) : undefined))
-              .orderBy(asc(task.dueAt), desc(task.priority));
+              .orderBy(asc(task.sortOrder), asc(task.dueAt), desc(task.priority));
           case "done":
             return db.select().from(task)
               .where(and(live, eq(task.status, "done"), dayStart ? gte(task.completedAt, dayStart) : undefined))
               .orderBy(desc(task.completedAt));
           default:
-            return db.select().from(task).where(live).orderBy(desc(task.createdAt));
+            return db.select().from(task).where(live).orderBy(asc(task.sortOrder), desc(task.createdAt));
         }
       },
       /** Tasks that belong on a calendar between `from` and `to`; recurring ones always (they expand client-side). */
@@ -181,7 +181,8 @@ export async function withProfile(db: Db, userId: string, profileId: string) {
                 completedAt: null,
               }
             : status !== undefined && { status, completedAt: status === "done" ? new Date() : null }),
-          updatedAt: new Date(),
+          // Reordering isn't a content change: leave updatedAt alone so it doesn't trigger a calendar re-push.
+          ...(!Object.keys(input).every((k) => k === "sortOrder") && { updatedAt: new Date() }),
         }).where(mine(id)).returning();
         if (!t) return undefined;
 

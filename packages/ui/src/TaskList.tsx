@@ -25,6 +25,8 @@ export function TaskRow({
   onToggle,
   onDelete,
   onSetDue,
+  onMoveUp,
+  onMoveDown,
 }: {
   task: Task;
   reminder?: Reminder;
@@ -32,6 +34,9 @@ export function TaskRow({
   onDelete(): void;
   /** When provided, the row offers a date picker to (re)schedule the task. */
   onSetDue?(due: { iso: string; allDay: boolean; rrule: string | null } | null): void;
+  /** When provided, the row shows move up/down buttons (omitted for the first/last row). */
+  onMoveUp?(): void;
+  onMoveDown?(): void;
 }) {
   const [editingDue, setEditingDue] = useState(false);
   const dueButton = useRef<HTMLButtonElement>(null);
@@ -55,6 +60,26 @@ export function TaskRow({
           </p>
         )}
       </div>
+      {(onMoveUp || onMoveDown) && (
+        <div className="flex flex-col opacity-0 transition group-hover:opacity-100">
+          <button
+            onClick={onMoveUp}
+            disabled={!onMoveUp}
+            aria-label="Move up"
+            className="rounded px-1 text-[10px] leading-3 text-muted hover:bg-surface-2 hover:text-fg disabled:invisible"
+          >
+            ▲
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+            aria-label="Move down"
+            className="rounded px-1 text-[10px] leading-3 text-muted hover:bg-surface-2 hover:text-fg disabled:invisible"
+          >
+            ▼
+          </button>
+        </div>
+      )}
       {onSetDue && !done && (
         <button
           ref={dueButton}
@@ -96,6 +121,16 @@ export function TaskList({ profile }: { profile: Profile }) {
   const [title, setTitle] = useState("");
   const [due, setDue] = useState<DateTimeValue>({ date: null, allDay: false, rrule: null });
   const [remind, setRemind] = useState<"default" | "none" | number>("default");
+
+  /** Moves a task one slot and renumbers only the rows whose position changed. */
+  function move(index: number, by: -1 | 1) {
+    const order = tasks.slice();
+    const [t] = order.splice(index, 1);
+    order.splice(index + by, 0, t!);
+    order.forEach((o, i) => {
+      if (o.sortOrder !== i + 1) update.mutate({ id: o.id, sortOrder: i + 1 });
+    });
+  }
 
   function add(e: FormEvent) {
     e.preventDefault();
@@ -167,10 +202,12 @@ export function TaskList({ profile }: { profile: Profile }) {
         </div>
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-          {tasks.map((t) => (
+          {tasks.map((t, i) => (
             <TaskRow
               key={t.id}
               task={t}
+              onMoveUp={view !== "done" && i > 0 ? () => move(i, -1) : undefined}
+              onMoveDown={view !== "done" && i < tasks.length - 1 ? () => move(i, 1) : undefined}
               reminder={reminderByTask.get(t.id)}
               onToggle={(done) => update.mutate({ id: t.id, status: done ? "done" : "todo" })}
               onDelete={() => remove.mutate(t.id)}
