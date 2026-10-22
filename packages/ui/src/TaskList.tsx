@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent, type HTMLAttributes } from "react";
 import {
-  describeRrule, useReminders, useTaskMutations, useTasks, useUiState,
+  describeRrule, useCalendarAccounts, useReminders, useTaskMutations, useTasks, useUiState,
   type Profile, type Reminder, type Task, type TaskView,
 } from "@doer/core";
 import { DateTimeField, DueDropdown, formatDue, type DateTimeValue } from "./DateTimePicker";
@@ -27,6 +27,8 @@ export function TaskRow({
   onDelete,
   onSetDue,
   onSetNotes,
+  inCalendar,
+  onSetInCalendar,
   dragProps,
   dragging,
   dropTarget,
@@ -39,6 +41,9 @@ export function TaskRow({
   onSetDue?(due: { iso: string; allDay: boolean; rrule: string | null } | null): void;
   /** When provided, the row shows a notes preview and lets the user edit the notes. */
   onSetNotes?(notes: string | null): void;
+  /** When provided (profile has a writable Google calendar), a scheduled task can be toggled in/out of it. */
+  inCalendar?: boolean;
+  onSetInCalendar?(on: boolean): void;
   /** When provided, the row can be dragged to reorder (the list owns the drag state). */
   dragProps?: HTMLAttributes<HTMLLIElement>;
   dragging?: boolean;
@@ -97,6 +102,16 @@ export function TaskRow({
           📅
         </button>
       )}
+      {onSetInCalendar && t.dueAt && !done && (
+        <button
+          onClick={() => onSetInCalendar(!inCalendar)}
+          aria-label={inCalendar ? "Remove from Google Calendar" : "Add to Google Calendar"}
+          title={inCalendar ? "In Google Calendar (click to remove)" : "Add to Google Calendar"}
+          className={`rounded-md px-1.5 text-muted transition hover:bg-surface-2 hover:text-fg group-hover:opacity-100 ${inCalendar ? "bg-accent/15 opacity-100" : "opacity-0"}`}
+        >
+          🗓️
+        </button>
+      )}
       {editingNotes && onSetNotes && (
         <NotesDropdown anchor={notesButton} initial={t.notes} onSave={onSetNotes} onClose={() => setEditingNotes(false)} />
       )}
@@ -130,6 +145,10 @@ export function TaskList({ profile }: { profile: Profile }) {
   const reminderByTask = new Map(reminders.map((r) => [r.taskId, r]));
   const [title, setTitle] = useState("");
   const [due, setDue] = useState<DateTimeValue>({ date: null, allDay: false, rrule: null });
+  const { data: accounts = [] } = useCalendarAccounts(profile.id);
+  const canMirror = accounts.some((a) => a.calendars.some((c) => c.isWriteTarget && c.writable));
+  const [toCalendarPick, setToCalendar] = useState<boolean | null>(null); // null = follow the profile default
+  const toCalendar = toCalendarPick ?? profile.mirrorTasks;
   const [remind, setRemind] = useState<"default" | "none" | number>("default");
 
   const [dragId, setDragId] = useState<string | null>(null);
@@ -159,9 +178,11 @@ export function TaskList({ profile }: { profile: Profile }) {
       {
         title,
         ...(dueAt && { dueAt, allDay, tz: localTz(), ...(due.rrule && { rrule: due.rrule }) }),
+        // Only send an override when it differs from the profile's default.
+        ...(dueAt && canMirror && toCalendar !== profile.mirrorTasks && { mirror: toCalendar }),
         ...(dueAt && remind !== "default" && { reminderOffset: remind === "none" ? null : remind }),
       },
-      { onSuccess: () => { setTitle(""); setDue({ date: null, allDay: false, rrule: null }); setRemind("default"); } },
+      { onSuccess: () => { setTitle(""); setDue({ date: null, allDay: false, rrule: null }); setRemind("default"); setToCalendar(null); } },
     );
   }
 
@@ -193,6 +214,12 @@ export function TaskList({ profile }: { profile: Profile }) {
         {title.trim() && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <DateTimeField value={due} onChange={setDue} />
+            {due.date && canMirror && (
+              <label className="flex items-center gap-1.5 text-sm text-muted">
+                <input type="checkbox" checked={toCalendar} onChange={(e) => setToCalendar(e.target.checked)} />
+                Google Calendar
+              </label>
+            )}
             {due.date && (
               <select
                 value={String(remind)}
@@ -237,6 +264,8 @@ export function TaskList({ profile }: { profile: Profile }) {
               onToggle={(done) => update.mutate({ id: t.id, status: done ? "done" : "todo" })}
               onDelete={() => remove.mutate(t.id)}
               onSetNotes={(notes) => update.mutate({ id: t.id, notes })}
+              inCalendar={t.mirror ?? profile.mirrorTasks}
+              onSetInCalendar={canMirror ? (on) => update.mutate({ id: t.id, mirror: on }) : undefined}
               onSetDue={(due) =>
                 update.mutate({ id: t.id, dueAt: due?.iso ?? null, allDay: due?.allDay ?? false, rrule: due?.rrule ?? null, tz: localTz() })
               }
