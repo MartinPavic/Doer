@@ -15,3 +15,18 @@ simple = { limit = 10, period = 60 }
 name = "API_LIMITER" # authenticated API traffic, keyed by user
 namespace_id = "1002"
 simple = { limit = 300, period = 60 }
+
+[vars]
+BETTER_AUTH_URL = "https://doer-api.martin-pavic97.workers.dev"
+WEB_ORIGIN = "https://doer-web.pages.dev"
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = false
+head_sampling_rate = 1
+persist = true

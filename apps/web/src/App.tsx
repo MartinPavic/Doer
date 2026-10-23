@@ -1,7 +1,14 @@
 import { DoerProvider, type Platform } from "@doer/core";
 import { AppShell } from "@doer/ui";
 
-// Browser can't hold secrets or notify yet (Phase 4 adds Web Push); cookies carry the session.
+const TOKEN_KEY = "session-token";
+
+const getToken = async () => localStorage.getItem(TOKEN_KEY);
+const setToken = async (token: string | null) => {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+};
+
 const b64urlToBytes = (s: string) => {
   const raw = atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "="));
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
@@ -53,7 +60,12 @@ const platform: Platform = {
 
 export default function App() {
   return (
-    <DoerProvider platform={platform} baseUrl={import.meta.env.VITE_API_URL ?? ""}>
+    <DoerProvider
+      platform={platform}
+      baseUrl={import.meta.env.VITE_API_URL ?? ""}
+      getToken={getToken}
+      setToken={setToken}
+    >
       <AppShell />
     </DoerProvider>
   );
