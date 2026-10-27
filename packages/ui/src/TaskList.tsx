@@ -51,6 +51,7 @@ export function TaskRow({
 }) {
   const [editingDue, setEditingDue] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
+  const [titleExpanded, setTitleExpanded] = useState(false);
   const dueButton = useRef<HTMLButtonElement>(null);
   const notesButton = useRef<HTMLButtonElement>(null);
   const firstNoteLine = t.notes?.split("\n").find((l) => l.trim())?.trim();
@@ -68,7 +69,14 @@ export function TaskRow({
         className="size-[18px] cursor-pointer rounded"
       />
       <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm ${done ? "text-muted line-through" : ""}`}>{t.title}</p>
+        <button
+          type="button"
+          aria-expanded={titleExpanded}
+          onClick={() => setTitleExpanded((expanded) => !expanded)}
+          className={`block w-full text-left text-sm ${titleExpanded ? "whitespace-normal break-words" : "truncate"} ${done ? "text-muted line-through" : ""}`}
+        >
+          {t.title}
+        </button>
         {firstNoteLine && (
           <p className="mt-0.5 truncate text-xs italic text-muted" title={t.notes ?? undefined}>
             📝 {firstNoteLine}
