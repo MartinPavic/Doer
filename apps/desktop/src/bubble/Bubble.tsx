@@ -6,9 +6,9 @@ import {
   currentMonitor,
   getCurrentWindow,
 } from "@tauri-apps/api/window";
-import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { useDueReminders, useTasks } from "@doer/core";
 import { BellMark, Logo, QuickPanel, ReminderAlerts, useActiveProfile } from "@doer/ui";
+import { registerShortcut, unregisterShortcut } from "./shortcut";
 
 const SIZE = 56;
 const PANEL = { w: 360, h: 520 };
@@ -16,18 +16,12 @@ const ALERT_W = 340;
 const FRESH_MS = 2 * 60_000; // only reminders this recent pop out on startup; older ones just keep the bubble pulsing
 const MARGIN = 8;
 const POS_KEY = "doer-bubble-pos";
-const SHORTCUT = "Alt+Space";
 
 type Pt = { x: number; y: number };
 type Rect = Pt & { w: number; h: number };
 
 const win = getCurrentWindow();
 
-// Shortcut (un)registration is async and order-sensitive (StrictMode mounts effects twice in dev),
-// so run every call through one queue.
-let shortcutQueue: Promise<unknown> = Promise.resolve();
-const queueShortcut = (fn: () => Promise<unknown>) =>
-  (shortcutQueue = shortcutQueue.then(fn).catch((err) => console.warn(`${SHORTCUT} shortcut`, err)));
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 // All geometry below is in logical (point) units, in the macOS global coordinate space.
@@ -172,13 +166,11 @@ export function Bubble() {
       }),
     );
 
-    void queueShortcut(() =>
-      register(SHORTCUT, (e) => {
-        if (e.state !== "Pressed") return;
-        // Collapsed or showing a reminder card: open the panel. Panel open: close it.
-        void (modeRef.current === "expanded" ? collapse() : expand());
-      }),
-    );
+    void registerShortcut((e) => {
+      if (e.state !== "Pressed") return;
+      // Collapsed or showing a reminder card: open the panel. Panel open: close it.
+      void (modeRef.current === "expanded" ? collapse() : expand());
+    });
 
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && void collapse();
     window.addEventListener("keydown", onKey);
@@ -186,7 +178,7 @@ export function Bubble() {
     return () => {
       clearTimeout(settleTimer);
       window.removeEventListener("keydown", onKey);
-      void queueShortcut(() => unregister(SHORTCUT));
+      void unregisterShortcut();
       cleanups.forEach((p) => void p.then((off) => off()));
     };
   }, [expand, collapse]);

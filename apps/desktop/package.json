@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test": "node --experimental-test-module-mocks --test src/bubble/shortcut.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
